@@ -6,29 +6,42 @@ EN_MODELS = {
     "1": ("base.en",   "Fast, lower accuracy (~1 GB VRAM)"),
     "2": ("small.en",  "Balanced speed and accuracy (~2 GB VRAM)"),
     "3": ("medium.en", "Best accuracy, slower (~4 GB VRAM)"),
+    "4": None,         # custom — handled in _pick()
 }
 
 NL_MODELS = {
     "1": ("base",   "Fast, lower accuracy (~1 GB VRAM)"),
     "2": ("small",  "Balanced speed and accuracy (~2 GB VRAM)"),
     "3": ("medium", "Best accuracy, slower (~4 GB VRAM)"),
+    "4": None,         # custom — handled in _pick()
 }
 
 
 def _pick(label: str, models: dict, current: str) -> str | None:
     print(f"\n--- {label} ---")
     print("Larger models are more accurate but take longer to load and process.\n")
-    for key, (name, desc) in models.items():
-        marker = " <-- active" if name == current else ""
-        print(f"  [{key}] {name:<10} — {desc}{marker}")
+    for key, value in models.items():
+        if value is None:
+            is_custom = current not in [v[0] for v in models.values() if v]
+            marker = f" <-- active: {current}" if is_custom else ""
+            print(f"  [{key}] {'custom':<10} — Enter a HuggingFace model path{marker}")
+        else:
+            name, desc = value
+            marker = " <-- active" if name == current else ""
+            print(f"  [{key}] {name:<10} — {desc}{marker}")
     print()
     while True:
-        raw = input(f"Select {label} model (1-3, or 'q' to skip): ").strip().lower()
+        raw = input(f"Select {label} model (1-4, or 'q' to skip): ").strip().lower()
         if raw in ("q", "quit", "exit", ""):
             return None
         if raw in models:
+            if models[raw] is None:
+                path = input("  Enter HuggingFace model path (or 'q' to cancel): ").strip()
+                if not path or path.lower() in ("q", "quit", "exit"):
+                    return None
+                return path
             return models[raw][0]
-        print("  Invalid choice. Enter 1, 2, or 3.")
+        print("  Invalid choice. Enter 1, 2, 3, or 4.")
 
 
 def main() -> None:

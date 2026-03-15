@@ -7,6 +7,9 @@ Hotkeys (configurable in config.py / settings.json):
 
 "Wait & Blitz": record the full utterance, transcribe on stop, type the result.
 """
+import os
+import queue
+import sys
 import threading
 import winsound
 
@@ -20,12 +23,21 @@ from audio_capture import AudioRecorder, SAMPLE_RATE
 from transcriber import WhisperEngine
 
 
+# ── resource path (PyInstaller-compatible) ──────────────────────────
+
+def get_resource_path(relative_path: str) -> str:
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+
 # ── audio feedback helpers ──────────────────────────────────────────
 
 def _play(path: str) -> None:
+    resolved = get_resource_path(path)
     threading.Thread(
         target=winsound.PlaySound,
-        args=(path, winsound.SND_FILENAME | winsound.SND_ASYNC),
+        args=(resolved, winsound.SND_FILENAME | winsound.SND_ASYNC),
         daemon=True,
     ).start()
 
@@ -61,8 +73,12 @@ class HotkeyListener:
         self._recorder = AudioRecorder()
         self.is_recording = False
         self._active_language = "en"
+        self._active_model_size = "small.en"
         self._held: set = set()
         self._listener = None
+        self._queue: queue.Queue = queue.Queue()
+        self._worker = threading.Thread(target=self._worker_loop, daemon=True)
+        self._worker.start()
 
     def _settings(self):
         return config.load()
@@ -87,10 +103,11 @@ class HotkeyListener:
         self._active_language = "en" if key == key_en else "nl"
         device_id = cfg.get("device_id")
 
-        # Hot-swap model if needed (English → .en model, Dutch → multilingual)
+        # Capture target model (actual loading deferred to the worker thread)
         model_key = "model_size_en" if self._active_language == "en" else "model_size_nl"
-        model_size = cfg.get(model_key, "small.en" if self._active_language == "en" else "small")
-        self._engine.ensure_model(model_size)
+        self._active_model_size = cfg.get(
+            model_key, "small.en" if self._active_language == "en" else "small"
+        )
 
         try:
             self._recorder.start_recording(device_id)
@@ -103,7 +120,7 @@ class HotkeyListener:
         play_start()
         label = "ENGLISH" if self._active_language == "en" else "DUTCH"
         mic_name = sd.query_devices(device_id)["name"] if device_id is not None else "default"
-        print(f"RECORDING ({label}) — Model: {model_size} — Mic: {mic_name}")
+        print(f"RECORDING ({label}) — Model: {self._active_model_size} — Mic: {mic_name}")
 
     def _stop_recording(self):
         self.is_recording = False
@@ -111,21 +128,40 @@ class HotkeyListener:
 
         audio_data = self._recorder.stop_recording()
         duration = len(audio_data) / SAMPLE_RATE
-        print(f"STOPPED — {duration:.1f}s captured — transcribing...")
+        print(f"STOPPED — {duration:.1f}s captured — queued for transcription")
 
-        # Run transcription off the pynput callback thread
-        threading.Thread(
-            target=self._transcribe_and_output,
-            args=(audio_data, self._active_language),
-            daemon=True,
-        ).start()
+        # Enqueue the task; the worker thread handles the rest
+        self._queue.put({
+            "audio": audio_data,
+            "lang": self._active_language,
+            "model_size": self._active_model_size,
+        })
 
-    def _transcribe_and_output(self, audio_data: np.ndarray, language: str) -> None:
-        text = self._engine.transcribe(audio_data, language)
+    # ── background worker ─────────────────────────────────────────────
+
+    def _worker_loop(self) -> None:
+        """Continuously process transcription tasks from the queue."""
+        while True:
+            task = self._queue.get()
+            try:
+                self._process_task(task)
+            finally:
+                self._queue.task_done()
+
+    def _process_task(self, task: dict) -> None:
+        audio_data = task["audio"]
+        language   = task["lang"]
+        model_size = task["model_size"]
+
+        self._engine.ensure_model(model_size)
+        audio_duration = len(audio_data) / SAMPLE_RATE
+        text, transcribe_time = self._engine.transcribe(audio_data, language)
         if text:
-            print(f">> {text}")
+            rtf = audio_duration / transcribe_time if transcribe_time > 0 else 0
+            print(f"TRANSCRIBED in {transcribe_time:.2f}s: {text}")
+            print(f"  Speed: {rtf:.1f}x faster than real-time")
             output_handler.type_text(text)
-            output_handler.log_transcription(text)
+            output_handler.log_transcription(text, model_size, transcribe_time)
         play_done()
 
     def _handle_release(self, key):

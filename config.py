@@ -7,7 +7,6 @@ DEFAULTS = {
     "device_id": None,
     "model_size_en": "small.en",
     "model_size_nl": "small",
-    "language": "en",
     "hotkey_english": "f13",
     "hotkey_dutch": "f14",
     "sound_start": "assets/start.wav",
@@ -29,15 +28,9 @@ def save(settings: dict) -> None:
         json.dump(settings, f, indent=2)
 
 
-def set_device(device_id: int) -> None:
+def set_device(device_id: int | None) -> None:
     settings = load()
     settings["device_id"] = device_id
-    save(settings)
-
-
-def set_language(language: str) -> None:
-    settings = load()
-    settings["language"] = language
     save(settings)
 
 

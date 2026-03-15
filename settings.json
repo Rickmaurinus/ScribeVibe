@@ -1,11 +1,11 @@
 {
-  "device_id": 5,
+  "device_id": 3,
   "model_size_en": "medium.en",
   "model_size_nl": "medium",
-  "language": "en",
   "hotkey_english": "f13",
   "hotkey_dutch": "f14",
   "sound_start": "assets/start.wav",
   "sound_stop": "assets/stop.wav",
-  "sound_done": "assets/done.wav"
+  "sound_done": "assets/done.wav",
+  "language": "en"
 }

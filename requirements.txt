@@ -1,6 +1,7 @@
 faster-whisper
+pystray
+Pillow
 pywin32
-requests
 sounddevice
 numpy
 pynput

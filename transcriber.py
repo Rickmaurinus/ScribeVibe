@@ -3,6 +3,7 @@
 Supports hot-swapping models in VRAM via ensure_model().
 """
 import gc
+import time
 
 import numpy as np
 import torch
@@ -34,12 +35,14 @@ class WhisperEngine:
         self.current_model = model_size
         print("Model ready.")
 
-    def transcribe(self, audio_array: np.ndarray, language: str = "en") -> str:
-        """Transcribe a 16 kHz float32 mono numpy array. Returns the text string."""
+    def transcribe(self, audio_array: np.ndarray, language: str = "en") -> tuple[str, float]:
+        """Transcribe a 16 kHz float32 mono array. Returns (text, duration_seconds)."""
         multilingual = not self.current_model.endswith(".en")
         kwargs = {"language": language} if multilingual else {}
+        start_time = time.perf_counter()
         segments, _info = self._model.transcribe(
             audio_array, beam_size=5, **kwargs
         )
         text = " ".join(seg.text.strip() for seg in segments if seg.text.strip())
-        return text
+        duration = time.perf_counter() - start_time
+        return text, duration

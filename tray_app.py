@@ -20,6 +20,7 @@ EN_MODELS = [
 ]
 
 NL_MODELS = [
+    ("large-v3-turbo", "Large-v3-Turbo"),
     ("base",   "Base"),
     ("small",  "Small"),
     ("medium", "Medium"),

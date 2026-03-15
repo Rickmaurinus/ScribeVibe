@@ -2,3 +2,50 @@
 [2026-03-15 12:36:46] Ik ga dit nu in het Nederlands proberen om te zien of het werkt.
 [2026-03-15 12:36:52] Dit werkt echt rasend snel.
 [2026-03-15 12:36:59] Okay, we're gonna talk in English now and see if it's quick enough.
+[2026-03-15 12:39:47] Kunnen we dit dan nu ook proberen en zien of het werkt.
+[2026-03-15 12:39:52] This can also heal us now.
+[2026-03-15 12:39:59] How quickly can I talk and it still understands what I'm saying?
+[2026-03-15 12:40:20] Oké, schatje, dit is even een test. En dit is nu de test met mijn eigen applicatie. Dus deze heb ik net gewouwd. En de tekst die je nu hier in de chat ziet, is mijn eigen python app. Oh my god.
+[2026-03-15 12:40:37] Ik ben zo onder de indruk dat dit dus werkt.
+[2026-03-15 12:40:47] Ik ga me wel holen.
+[2026-03-15 12:40:53] Ik kan wel heulen.
+[2026-03-15 12:42:51] I am now sending you a conversation with my personally billed app. So all the audio you're hearing right now is from the app.
+[2026-03-15 12:49:43] Okay, so now we're talking in English.
+[2026-03-15 12:49:54] And I will continue talking now because there's more to talk about. When are we done? We're not done yet, but we're still talking.
+[2026-03-15 12:50:03] And the future I'd like this to continue, so everything works just as expected.
+[2026-03-15 12:50:09] Thank you.
+[2026-03-15 12:52:09] Oké, dus nu hebben we even een momentje om te praten.
+[2026-03-15 12:52:14] En dat moment je dat is echt prima, ik kan nu gewoon meer verder.
+[2026-03-15 12:52:22] En even kijkkel, dit niet ook weer fettig om.
+[2026-03-15 12:52:23] TV GELDERLAND 2020.
+[2026-03-15 12:52:37] Hallo, kan je mij verstaan?
+[2026-03-15 12:52:48] Ik ben eventjes benieuwd of de audio goed is. En als de audio goed is, dan kunnen we gewoon doorplaten.
+[2026-03-15 12:52:56] Dan hebben we even buizen en gaan we verder. En ik heb geen idee of dit nu wel, of niet goed is.
+[2026-03-15 12:53:02] Maar dat gaan we straks gewoon zien.
+[2026-03-15 12:54:05] but whenever I'm talking in my microphone and I have some big chunks then I pause a little bit it will transcribe as expected so that's good but then if I continue talking so the next chunk and I press stop it takes a while to actually return me the output that takes much longer than the initial output generation
+[2026-03-15 12:54:10] And I wonder why that is because it is definitely very quick without the pauses.
+[2026-03-15 12:54:13] Thank you.
+[2026-03-15 12:54:14] Thank you.
+[2026-03-15 13:01:06] Okay, we're gonna try to record this again and see if it gives us any different results.
+[2026-03-15 13:01:17] I will then continue talking and that should do the same for me and I'm really curious whether the audio is crisp and sweet.
+[2026-03-15 13:01:21] Finally, once we get to the end, I'm gonna get a total.
+[2026-03-15 13:12:11] I'm now going to record this and see if the audio is transcribed quickly. I expect it to be. Let's see what the result is in a few minutes. The weather is great today. We have a blue sky, the tree is growing and I should clean my windows.
+[2026-03-15 13:12:26] It's so easy to just copy paste this, and that's quick.
+[2026-03-15 13:12:34] It's easy to copy paste this and it is quick.
+[2026-03-15 13:13:24] I'd like to test if the results are as I expected. Let's see how it works.
+[2026-03-15 13:17:11] I know there are apps available for this, but it is just so much more fun to build it yourself.
+[2026-03-15 13:18:17] So we're first going to see if we can make this work.
+[2026-03-15 13:18:37] Ik wil zien hoe dit werkt vandaag.
+[2026-03-15 13:18:46] Ik wil heel graag zien of dit werkt, vandaag.
+[2026-03-15 13:28:59] I would like to test whether or not the new model that we choose is working better or not. So things have changed, we went to a medium model, and the medium model should be able me just more clearly and accurately.
+[2026-03-15 13:29:23] I would also like to see whether or not the Dutch language has improved. Ik wil graag zien of het Nederlandse taal ook beter is geworden, want ik heb hier ook een mediamodel gepakt en die zou beter moeten worden.
+[2026-03-15 13:29:38] Dus wat vinden we hier van de Nederlandse taal? Ik wil graag zien of die ook is verbeterd, omdat die niet altijd alles juist pakt.
+[2026-03-15 13:32:25] Ik zou graag willen proberen of de audio nu beter is, want ik heb nu gekeken als we iets gaan kopiëren en plakken, of er niet iets anders komt te staan dan wat ik nodig heb.
+[2026-03-15 13:32:39] Kunnen we nu nog wat nieuwe dingen plakken, want het is me niet helemaal duidelijk wat ik aan het plakken ben.
+[2026-03-15 13:45:55] We're now speaking to the medium model, and I'm just very curious when we do this, how long it will take to transcribe. I bought the definitive guide to DEX. It's about mastering the semantic model expression language for Microsoft Power BI, Fabric and Excel.
+[2026-03-15 13:46:08] Okay, that's actually not so bad when I think about it.
+[2026-03-15 13:46:36] oké dus nu gaan we proberen en doen wat dutch te filmen de dutch model is groter omdat het een multilinguele model is dus dit zou een beetje langer
+[2026-03-15 13:46:54] Ik ga nu een stukje in het Nederlands doen, waar ik net tegen de applicatie praatte in het Engels, had hij hem meteen vertaald en misschien is dit eigenlijk ook wel iets heel leuks. Hoe lang zou het duren?
+[2026-03-15 13:47:26] Ik weet ook eigenlijk niet zo heel goed hoe lang dit zou moeten duren. Het is een mooi model, dit model is ook best wel oké en omdat ik die CUDA cores gebruik lijkt het ook best wel snel te gaan. Ik kijk ondertussen ook even naar de performance en ik wil graag zien hoe hard die Nvidia cores aan het werk gaan.
+[2026-03-15 13:47:50] realize that these work fantastically quick I did not realize that until now
+[2026-03-15 13:48:04] For some reason, recording this is so, so quick. I'm very impressed with this application.

@@ -1,8 +1,8 @@
-transformers
-accelerate
+faster-whisper
+pywin32
+requests
 sounddevice
 numpy
 pynput
 pyautogui
-webrtcvad
 scipy

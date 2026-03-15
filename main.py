@@ -5,7 +5,13 @@ from interface import HotkeyListener
 
 if __name__ == "__main__":
     cfg = config.load()
-    engine = WhisperEngine(model_name=cfg["model_name"])
+    model_en = cfg.get("model_size_en", "small.en")
+    model_nl = cfg.get("model_size_nl", "small")
+
+    print(f"English model: {model_en}  |  Dutch model: {model_nl}")
+
+    # Pre-load the English model (most common starting language)
+    engine = WhisperEngine(model_size=model_en)
 
     listener = HotkeyListener(engine=engine)
     listener.start()

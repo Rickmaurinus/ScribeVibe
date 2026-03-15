@@ -1,16 +1,36 @@
-"""Handles text output: typing at cursor and logging to file."""
+"""Handles text output: paste-at-cursor and logging to file."""
 import datetime
+import time
 import pyautogui
+import win32clipboard
+import win32con
 
 LOG_FILE = "transcription_log.txt"
 
-# Disable pyautogui's fail-safe (moving mouse to corner) during typing
 pyautogui.FAILSAFE = False
 
 
 def type_text(text: str) -> None:
-    """Type text at the current cursor position with a trailing space."""
-    pyautogui.write(text + " ", interval=0.005)
+    """Paste text at the current cursor position via clipboard + Ctrl+V."""
+    copy_to_hidden_clipboard(text)
+    time.sleep(0.1)
+    pyautogui.hotkey("ctrl", "v")
+
+
+def copy_to_hidden_clipboard(text: str) -> None:
+    """Copy text to clipboard without adding it to Windows Clipboard History."""
+    try:
+        win32clipboard.OpenClipboard()
+        win32clipboard.EmptyClipboard()
+        win32clipboard.SetClipboardText(text, win32con.CF_UNICODETEXT)
+        exclude_format = win32clipboard.RegisterClipboardFormat(
+            "ExcludeClipboardContentFromMonitorProcessing"
+        )
+        win32clipboard.SetClipboardData(exclude_format, b'\x00')
+    except Exception as e:
+        print(f"Clipboard error: {e}")
+    finally:
+        win32clipboard.CloseClipboard()
 
 
 def log_transcription(text: str) -> None:

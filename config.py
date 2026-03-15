@@ -5,7 +5,8 @@ SETTINGS_FILE = "settings.json"
 
 DEFAULTS = {
     "device_id": None,
-    "model_name": "openai/whisper-base",
+    "model_size_en": "small.en",
+    "model_size_nl": "small",
     "language": "en",
     "hotkey_english": "f13",
     "hotkey_dutch": "f14",
@@ -34,13 +35,19 @@ def set_device(device_id: int) -> None:
     save(settings)
 
 
-def set_model(model_name: str) -> None:
-    settings = load()
-    settings["model_name"] = model_name
-    save(settings)
-
-
 def set_language(language: str) -> None:
     settings = load()
     settings["language"] = language
+    save(settings)
+
+
+def set_model_size_en(size_name: str) -> None:
+    settings = load()
+    settings["model_size_en"] = size_name
+    save(settings)
+
+
+def set_model_size_nl(size_name: str) -> None:
+    settings = load()
+    settings["model_size_nl"] = size_name
     save(settings)

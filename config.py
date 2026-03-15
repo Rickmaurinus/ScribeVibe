@@ -15,18 +15,32 @@ DEFAULTS = {
     "sound_done": "assets/done.wav",
 }
 
+_cache: dict | None = None
+
 
 def load() -> dict:
+    global _cache
+    if _cache is not None:
+        return dict(_cache)
+    return _load_from_disk()
+
+
+def _load_from_disk() -> dict:
+    global _cache
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r") as f:
             data = json.load(f)
-        return {**DEFAULTS, **data}
-    return dict(DEFAULTS)
+        _cache = {**DEFAULTS, **data}
+    else:
+        _cache = dict(DEFAULTS)
+    return dict(_cache)
 
 
 def save(settings: dict) -> None:
+    global _cache
     with open(SETTINGS_FILE, "w") as f:
         json.dump(settings, f, indent=2)
+    _cache = dict(settings)
 
 
 def set_device(device_id: int | None) -> None:

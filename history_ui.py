@@ -229,6 +229,26 @@ def _run_window() -> None:
     tk.Label(hdr_frame, text="Transcription History",
              bg=_BG, fg=_FG,
              font=("Segoe UI", 15, "bold")).pack(side="left")
+
+    def _clear_history():
+        # Clear the log file
+        open(output_handler.LOG_FILE, "w").close()
+        # Remove all cards from the UI
+        for child in inner.winfo_children():
+            child.destroy()
+        _first_entry_ref[0] = None
+        lbl = tk.Label(inner, text="No transcriptions yet.",
+                       bg=_BG, fg=_DIM, font=("Segoe UI", 11), pady=40)
+        lbl.pack()
+        _empty_lbl_ref[0] = lbl
+
+    tk.Button(hdr_frame, text="Clear History",
+              bg=_CARD, fg=_ACCENT,
+              activebackground=_BORDER, activeforeground=_ACCENT,
+              relief="flat", padx=10, pady=2,
+              font=("Segoe UI", 9), cursor="hand2",
+              highlightthickness=0, borderwidth=1,
+              command=_clear_history).pack(side="right")
     tk.Frame(root, bg=_BORDER, height=1).pack(fill="x", padx=20, pady=(10, 0))
 
     # Scrollable area
@@ -260,16 +280,25 @@ def _run_window() -> None:
 
     _inner_ref = inner
 
-    # Populate with existing entries
+    # Populate with existing entries (batch-load for responsiveness)
     entries = _parse_log()
-    if entries:
-        first_widget = None
-        for ts, meta, text in entries:
+    _BATCH = 20  # entries per render batch
+
+    def _load_batch(idx=0):
+        batch = entries[idx:idx + _BATCH]
+        if not batch:
+            return
+        for ts, meta, text in batch:
             w = _make_entry(inner, ts, meta, text)
-            if first_widget is None:
-                first_widget = w
-        _first_entry_ref[0] = first_widget
+            if _first_entry_ref[0] is None:
+                _first_entry_ref[0] = w
+        if idx + _BATCH < len(entries):
+            root.after(10, lambda: _load_batch(idx + _BATCH))
+
+    if entries:
         _empty_lbl_ref[0] = None
+        _first_entry_ref[0] = None
+        root.after(1, _load_batch)
     else:
         lbl = tk.Label(inner, text="No transcriptions yet.",
                        bg=_BG, fg=_DIM, font=("Segoe UI", 11), pady=40)
@@ -289,10 +318,12 @@ def _run_window() -> None:
         _first_entry_ref[0] = None
         _empty_lbl_ref[0] = None
         _open = False
-        root.destroy()
+        root.withdraw()
+        root.quit()
 
     root.protocol("WM_DELETE_WINDOW", _on_close)
     root.mainloop()
+    root.destroy()
     _open = False
 
 

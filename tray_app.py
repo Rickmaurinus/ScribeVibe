@@ -20,10 +20,10 @@ EN_MODELS = [
 ]
 
 NL_MODELS = [
-    ("large-v3-turbo", "Large-v3-Turbo"),
-    ("base",   "Base"),
-    ("small",  "Small"),
-    ("medium", "Medium"),
+    ("base",      "Base"),
+    ("small",     "Small"),
+    ("medium",    "Medium"),
+    ("deepdml/faster-whisper-large-v3-turbo-ct2", "Large-v3-Turbo"),
 ]
 
 
@@ -51,12 +51,6 @@ class TrayApp:
 
     def _switch_mic(self, device_id: int | None) -> None:
         config.set_device(device_id)
-        if self._icon:
-            if device_id is None:
-                label = "Default"
-            else:
-                label = sd.query_devices(device_id)["name"]
-            self._icon.notify(f"Microphone set to: {label}", "ScribeVibe — Mic Changed")
 
     def _is_mic_checked(self, device_id: int | None):
         return lambda _item: config.load().get("device_id") == device_id
@@ -87,28 +81,25 @@ class TrayApp:
     # ── model switching ─────────────────────────────────────────────
 
     def _switch_en(self, model_size: str) -> None:
+        old_model = config.load().get("model_size_en")
         config.set_model_size_en(model_size)
-        if self._engine:
+        # Only preload if the GPU currently holds the old English model
+        if self._engine and self._engine.current_model == old_model:
             threading.Thread(
                 target=self._engine.ensure_model,
                 args=(model_size,),
                 daemon=True,
             ).start()
-        if self._icon:
-            self._icon.notify(f"English model set to: {model_size}",
-                              "ScribeVibe — Model Changed")
-
     def _switch_nl(self, model_size: str) -> None:
+        old_model = config.load().get("model_size_nl")
         config.set_model_size_nl(model_size)
-        if self._engine:
+        # Only preload if the GPU currently holds the old Dutch model
+        if self._engine and self._engine.current_model == old_model:
             threading.Thread(
                 target=self._engine.ensure_model,
                 args=(model_size,),
                 daemon=True,
             ).start()
-        if self._icon:
-            self._icon.notify(f"Dutch model set to: {model_size}",
-                              "ScribeVibe — Model Changed")
 
     # ── menu builders ───────────────────────────────────────────────
 

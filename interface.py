@@ -177,13 +177,6 @@ class HotkeyListener:
         # Heavy work: concat + resample (deferred from the hotkey thread)
         audio_data = AudioRecorder.process_raw(task["raw"])
 
-        # VAD: trim silence, drop if no speech detected
-        audio_data = AudioRecorder.vad_trim(audio_data)
-        if audio_data is None:
-            print("No speech detected — skipping.")
-            _play(_SND_DONE)
-            return
-
         audio_duration = len(audio_data) / SAMPLE_RATE
         if audio_duration < 0.1:
             _play(_SND_DONE)

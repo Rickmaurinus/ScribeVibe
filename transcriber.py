@@ -41,14 +41,24 @@ class WhisperEngine:
 
     def warmup(self) -> None:
         """Run a dummy inference to trigger PyTorch/CUDA JIT compilation."""
-        if self._model is None:
-            return
-        dummy_audio = np.zeros(8000, dtype=np.float32)  # 0.5s of silence at 16kHz
-        print("CUDA warm-up: running dummy inference...")
-        start = time.perf_counter()
-        self.transcribe(dummy_audio, language="en", beam_size=1)
-        elapsed = time.perf_counter() - start
-        print(f"CUDA warm-up complete in {elapsed:.2f}s — first real transcription will be fast.")
+        with self._lock:
+            if self._model is None:
+                return
+            dummy_audio = np.zeros(8000, dtype=np.float32)  # 0.5s of silence at 16kHz
+            print("CUDA warm-up: running dummy inference...")
+            start = time.perf_counter()
+            multilingual = not self.current_model.endswith(".en")
+            kwargs = {"language": "en"} if multilingual else {}
+            segments, _ = self._model.transcribe(
+                dummy_audio, beam_size=1, vad_filter=True,
+                condition_on_previous_text=False, without_timestamps=True,
+                **kwargs
+            )
+            # Force evaluation of the generator
+            for _ in segments:
+                pass
+            elapsed = time.perf_counter() - start
+            print(f"CUDA warm-up complete in {elapsed:.2f}s — first real transcription will be fast.")
 
     def transcribe(self, audio_array: np.ndarray, language: str = "en",
                     beam_size: int = 2) -> tuple[str, float]:
@@ -62,7 +72,9 @@ class WhisperEngine:
             kwargs = {"language": language} if multilingual else {}
             start_time = time.perf_counter()
             segments, _info = self._model.transcribe(
-                audio_array, beam_size=beam_size, **kwargs
+                audio_array, beam_size=beam_size, vad_filter=True,
+                condition_on_previous_text=False, without_timestamps=True,
+                **kwargs
             )
             text = " ".join(seg.text.strip() for seg in segments if seg.text.strip())
             duration = time.perf_counter() - start_time

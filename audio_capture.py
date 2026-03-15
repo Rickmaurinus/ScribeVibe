@@ -1,14 +1,14 @@
 """Always-on audio capture — stream stays open, recording toggles a flag."""
-import math
-
 import numpy as np
 import sounddevice as sd
-from scipy.signal import resample_poly
+import soxr
 
 TARGET_SAMPLE_RATE = 16000   # Whisper expects 16 kHz
 CHANNELS = 1
 DTYPE = "float32"
 SAMPLE_RATE = TARGET_SAMPLE_RATE  # public alias
+
+FALLBACK_RATE = 48000
 
 
 class AudioRecorder:
@@ -18,10 +18,8 @@ class AudioRecorder:
         self._buffer: list[np.ndarray] = []
         self._capturing = False
         self._stream: sd.InputStream | None = None
-        self._native_rate: int = TARGET_SAMPLE_RATE
+        self._stream_rate: int = TARGET_SAMPLE_RATE
         self._needs_resample: bool = False
-        self._up: int = 1
-        self._down: int = 1
         self._current_device: int | None = None
 
     # ── stream lifecycle (called once, or when mic changes) ──────────
@@ -32,27 +30,41 @@ class AudioRecorder:
             return  # already open on the right device
 
         self._close_stream()
-
-        device_info = sd.query_devices(
-            device_id if device_id is not None else sd.default.device[0]
-        )
-        self._native_rate = int(device_info["default_samplerate"])
         self._current_device = device_id
-
-        if self._native_rate == TARGET_SAMPLE_RATE:
-            self._needs_resample = False
-        else:
-            self._needs_resample = True
-            gcd = math.gcd(TARGET_SAMPLE_RATE, self._native_rate)
-            self._up = TARGET_SAMPLE_RATE // gcd
-            self._down = self._native_rate // gcd
 
         def _callback(indata, frames, time_info, status):
             if self._capturing:
                 self._buffer.append(indata.copy())
 
+        # Try native 16 kHz first — lets PortAudio handle resampling in hardware
+        try:
+            self._stream = sd.InputStream(
+                samplerate=TARGET_SAMPLE_RATE,
+                channels=CHANNELS,
+                dtype=DTYPE,
+                device=device_id,
+                callback=_callback,
+            )
+            self._stream.start()
+            self._stream_rate = TARGET_SAMPLE_RATE
+            self._needs_resample = False
+            print(f"Mic stream opened at native 16 kHz — no resampling needed.")
+            return
+        except (sd.PortAudioError, ValueError):
+            # Device doesn't support 16 kHz — fall back to 48 kHz + soxr
+            if self._stream is not None:
+                try:
+                    self._stream.close()
+                except Exception:
+                    pass
+                self._stream = None
+
+        # Fallback: open at 48 kHz, resample later with soxr
+        device_info = sd.query_devices(
+            device_id if device_id is not None else sd.default.device[0]
+        )
         self._stream = sd.InputStream(
-            samplerate=self._native_rate,
+            samplerate=FALLBACK_RATE,
             channels=CHANNELS,
             dtype=DTYPE,
             device=device_id,
@@ -67,6 +79,10 @@ class AudioRecorder:
                 f"Cannot open device {device_id} ({device_info['name']}): {e}\n"
                 "Run select_mic.py to choose a different microphone."
             ) from e
+
+        self._stream_rate = FALLBACK_RATE
+        self._needs_resample = True
+        print(f"Mic stream opened at 48 kHz — will resample to 16 kHz via soxr.")
 
     def _close_stream(self) -> None:
         if self._stream is not None:
@@ -95,9 +111,7 @@ class AudioRecorder:
         raw = {
             "chunks": self._buffer,
             "needs_resample": self._needs_resample,
-            "up": self._up,
-            "down": self._down,
-            "native_rate": self._native_rate,
+            "stream_rate": self._stream_rate,
         }
         self._buffer = []  # swap — worker holds the old reference
         return raw
@@ -118,38 +132,4 @@ class AudioRecorder:
         if not raw["needs_resample"]:
             return audio
 
-        return resample_poly(audio, raw["up"], raw["down"]).astype(DTYPE)
-
-    @staticmethod
-    def vad_trim(audio: np.ndarray, sample_rate: int = TARGET_SAMPLE_RATE,
-                 frame_ms: int = 20, threshold_rms: float = 0.01,
-                 pad_ms: int = 100) -> np.ndarray | None:
-        """Trim leading/trailing silence using RMS energy.
-
-        Returns the trimmed array, or None if the entire clip is silence.
-        """
-        if len(audio) == 0:
-            return None
-
-        frame_len = int(sample_rate * frame_ms / 1000)
-        n_frames = len(audio) // frame_len
-        if n_frames == 0:
-            return None
-
-        # RMS per frame — vectorised
-        frames = audio[:n_frames * frame_len].reshape(n_frames, frame_len)
-        rms = np.sqrt(np.mean(frames ** 2, axis=1))
-
-        voiced = np.where(rms > threshold_rms)[0]
-        if len(voiced) == 0:
-            return None  # all silence — drop
-
-        first_sample = voiced[0] * frame_len
-        last_sample = (voiced[-1] + 1) * frame_len
-
-        # Safety buffer
-        pad_samples = int(sample_rate * pad_ms / 1000)
-        start = max(0, first_sample - pad_samples)
-        end = min(len(audio), last_sample + pad_samples)
-
-        return audio[start:end]
+        return soxr.resample(audio, raw["stream_rate"], TARGET_SAMPLE_RATE).astype(DTYPE)

@@ -1,6 +1,6 @@
 {
   "device_id": 1,
-  "model_size_en": "Systran/faster-distil-whisper-medium.en",
+  "model_size_en": "Systran/faster-distil-whisper-large-v3",
   "model_size_nl": "deepdml/faster-whisper-large-v3-turbo-ct2",
   "beam_size": 2,
   "hotkey_english": "f13",

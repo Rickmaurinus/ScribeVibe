@@ -5,5 +5,4 @@ pywin32
 sounddevice
 numpy
 pynput
-pyautogui
-scipy
+soxr

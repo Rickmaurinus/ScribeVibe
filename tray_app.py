@@ -15,6 +15,8 @@ EN_MODELS = [
     ("base.en",   "Base (EN)"),
     ("small.en",  "Small (EN)"),
     ("medium.en", "Medium (EN)"),
+    ("Systran/faster-distil-whisper-medium.en", "Distil-Medium (EN)"),
+    ("Systran/faster-distil-whisper-large-v3", "Distil-Large-v3 (EN)"),
 ]
 
 NL_MODELS = [
@@ -40,8 +42,9 @@ def _generate_icon() -> Image.Image:
 class TrayApp:
     """System tray icon with model-switching menus."""
 
-    def __init__(self) -> None:
+    def __init__(self, engine=None) -> None:
         self._icon: pystray.Icon | None = None
+        self._engine = engine
 
     # ── mic switching ───────────────────────────────────────────────
 
@@ -84,12 +87,24 @@ class TrayApp:
 
     def _switch_en(self, model_size: str) -> None:
         config.set_model_size_en(model_size)
+        if self._engine:
+            threading.Thread(
+                target=self._engine.ensure_model,
+                args=(model_size,),
+                daemon=True,
+            ).start()
         if self._icon:
             self._icon.notify(f"English model set to: {model_size}",
                               "ScribeVibe — Model Changed")
 
     def _switch_nl(self, model_size: str) -> None:
         config.set_model_size_nl(model_size)
+        if self._engine:
+            threading.Thread(
+                target=self._engine.ensure_model,
+                args=(model_size,),
+                daemon=True,
+            ).start()
         if self._icon:
             self._icon.notify(f"Dutch model set to: {model_size}",
                               "ScribeVibe — Model Changed")

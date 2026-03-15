@@ -126,6 +126,15 @@ class HotkeyListener:
             return
 
         self.is_recording = True
+
+        # Pre-fetch model during recording if a swap is needed
+        if self._engine.current_model != self._active_model_size:
+            threading.Thread(
+                target=self._engine.ensure_model,
+                args=(self._active_model_size,),
+                daemon=True,
+            ).start()
+
         threading.Thread(
             target=self._log_recording_start,
             args=(device_id, self._active_language, self._active_model_size),
@@ -167,6 +176,14 @@ class HotkeyListener:
 
         # Heavy work: concat + resample (deferred from the hotkey thread)
         audio_data = AudioRecorder.process_raw(task["raw"])
+
+        # VAD: trim silence, drop if no speech detected
+        audio_data = AudioRecorder.vad_trim(audio_data)
+        if audio_data is None:
+            print("No speech detected — skipping.")
+            _play(_SND_DONE)
+            return
+
         audio_duration = len(audio_data) / SAMPLE_RATE
         if audio_duration < 0.1:
             _play(_SND_DONE)

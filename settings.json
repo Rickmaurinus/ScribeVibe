@@ -1,6 +1,6 @@
 {
   "device_id": 1,
-  "model_size_en": "small.en",
+  "model_size_en": "Systran/faster-distil-whisper-medium.en",
   "model_size_nl": "medium",
   "beam_size": 2,
   "hotkey_english": "f13",

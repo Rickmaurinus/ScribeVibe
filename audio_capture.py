@@ -119,3 +119,37 @@ class AudioRecorder:
             return audio
 
         return resample_poly(audio, raw["up"], raw["down"]).astype(DTYPE)
+
+    @staticmethod
+    def vad_trim(audio: np.ndarray, sample_rate: int = TARGET_SAMPLE_RATE,
+                 frame_ms: int = 20, threshold_rms: float = 0.01,
+                 pad_ms: int = 100) -> np.ndarray | None:
+        """Trim leading/trailing silence using RMS energy.
+
+        Returns the trimmed array, or None if the entire clip is silence.
+        """
+        if len(audio) == 0:
+            return None
+
+        frame_len = int(sample_rate * frame_ms / 1000)
+        n_frames = len(audio) // frame_len
+        if n_frames == 0:
+            return None
+
+        # RMS per frame — vectorised
+        frames = audio[:n_frames * frame_len].reshape(n_frames, frame_len)
+        rms = np.sqrt(np.mean(frames ** 2, axis=1))
+
+        voiced = np.where(rms > threshold_rms)[0]
+        if len(voiced) == 0:
+            return None  # all silence — drop
+
+        first_sample = voiced[0] * frame_len
+        last_sample = (voiced[-1] + 1) * frame_len
+
+        # Safety buffer
+        pad_samples = int(sample_rate * pad_ms / 1000)
+        start = max(0, first_sample - pad_samples)
+        end = min(len(audio), last_sample + pad_samples)
+
+        return audio[start:end]

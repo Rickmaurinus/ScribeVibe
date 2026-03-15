@@ -1,7 +1,5 @@
-"""ScribeVibe — GPU-accelerated push-to-talk transcription (system tray app)."""
+"""ScribeVibe — GPU-accelerated push-to-talk transcription."""
 import threading
-
-import numpy as np
 
 import config
 from transcriber import WhisperEngine
@@ -9,46 +7,35 @@ from interface import HotkeyListener
 from tray_app import TrayApp
 
 
-def _warmup(engine: WhisperEngine, model_size: str, tray: TrayApp) -> None:
-    """Pre-load model + run a dummy transcription to warm CUDA kernels."""
+def _warmup(engine: WhisperEngine, tray: TrayApp, model_size: str) -> None:
+    """Background: load the default model and run a CUDA warm-up pass."""
     engine.ensure_model(model_size)
-
-    # Tiny dummy inference to JIT-compile CUDA kernels
-    silence = np.zeros(8000, dtype="float32")  # 0.5s of silence
-    engine.transcribe(silence, beam_size=1)
-
-    print(f"Engine warmed up ({model_size}).")
-    tray.notify(f"Engine warmed up ({model_size})", "ScribeVibe")
+    engine.warmup()
+    tray.notify("Model loaded & CUDA warm-up done — ready to transcribe!")
 
 
 if __name__ == "__main__":
     cfg = config.load()
-    model_en = cfg.get("model_size_en", "small.en")
-    model_nl = cfg.get("model_size_nl", "small")
-
-    print(f"English model: {model_en}  |  Dutch model: {model_nl}")
-
     engine = WhisperEngine()
 
-    # Start hotkey listener on a background thread
+    tray = TrayApp(engine=engine)
+    tray_thread = threading.Thread(target=tray.run, daemon=True)
+    tray_thread.start()
+
     listener = HotkeyListener(engine=engine)
     listener.start()
 
-    print(f"\nScribeVibe ready. F13=English  F14=Dutch")
-    print("Running in system tray — right-click the icon to switch models.\n")
-
-    # Run the tray icon on the main thread (pystray requires it on Windows)
-    tray = TrayApp()
-
-    # Warm up engine in background — tray appears immediately
+    # Eager model load + CUDA warm-up in background
     threading.Thread(
-        target=_warmup, args=(engine, model_en, tray), daemon=True
+        target=_warmup,
+        args=(engine, tray, cfg["model_size_en"]),
+        daemon=True,
     ).start()
 
+    print(f"\nScribeVibe ready. F13=English  F14=Dutch  Ctrl+C to quit.\n")
     try:
-        tray.run()  # blocks until Quit is selected
+        listener.join()
     except KeyboardInterrupt:
-        pass
-    finally:
         listener.stop()
-        print("Exiting.")
+        tray.stop()
+        print("\nExiting.")

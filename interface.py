@@ -9,11 +9,12 @@ import threading
 import winsound
 import numpy as np
 import sounddevice as sd
-from scipy.io.wavfile import write as wav_write
 from pynput import keyboard
 
 import config
+import output_handler
 from audio_capture import AudioRecorder, SAMPLE_RATE
+from transcriber import WhisperEngine
 
 
 def _play(path: str) -> None:
@@ -37,15 +38,6 @@ def play_done() -> None:
     _play(config.load()["sound_done"])
 
 
-DEBUG_WAV = "debug_recording.wav"
-
-
-def _save_debug_wav(audio: np.ndarray) -> None:
-    pcm = (audio * 32767).astype(np.int16)
-    wav_write(DEBUG_WAV, SAMPLE_RATE, pcm)
-    print(f"DEBUG: saved {DEBUG_WAV}")
-
-
 def _key_from_name(name: str) -> keyboard.Key:
     """Convert a config string like 'f13' to a pynput Key enum member."""
     return getattr(keyboard.Key, name.lower())
@@ -53,20 +45,19 @@ def _key_from_name(name: str) -> keyboard.Key:
 
 class HotkeyListener:
     """
-    Toggle-based hotkey listener.
+    Toggle-based hotkey listener with integrated transcription.
 
-    First press of a hotkey starts recording; any hotkey press while
-    recording is active stops it. on_start receives a language ('en'/'nl');
-    on_stop receives the captured audio as a numpy float32 array.
+    F13/F14 first press → start recording (plays start.wav)
+    Any hotkey second press → stop recording, transcribe, type output, log
     """
 
-    def __init__(self, on_start=None, on_stop=None):
-        self._on_start = on_start
-        self._on_stop = on_stop
-        self.is_recording = False
-        self._held: set = set()   # tracks physically held keys to suppress OS repeat
-        self._listener = None
+    def __init__(self, engine: WhisperEngine) -> None:
+        self._engine = engine
         self._recorder = AudioRecorder()
+        self.is_recording = False
+        self._active_language = "en"
+        self._held: set = set()
+        self._listener = None
 
     def _settings(self):
         return config.load()
@@ -76,7 +67,7 @@ class HotkeyListener:
         key_en = _key_from_name(cfg["hotkey_english"])
         key_nl = _key_from_name(cfg["hotkey_dutch"])
 
-        # Suppress OS key-repeat: only act on the first press, not held repeats
+        # Suppress OS key-repeat
         if key in self._held:
             return
         if key not in (key_en, key_nl):
@@ -84,28 +75,40 @@ class HotkeyListener:
         self._held.add(key)
 
         if not self.is_recording:
-            language = "en" if key == key_en else "nl"
+            self._active_language = "en" if key == key_en else "nl"
             self.is_recording = True
-            device_id = self._settings().get("device_id")
-            self._recorder.start_recording(device_id)
+            device_id = cfg.get("device_id")
+            try:
+                self._recorder.start_recording(device_id)
+            except RuntimeError as e:
+                self.is_recording = False
+                print(f"ERROR: {e}")
+                return
             play_start()
-            label = "ENGLISH" if language == "en" else "DUTCH"
+            label = "ENGLISH" if self._active_language == "en" else "DUTCH"
             mic_name = sd.query_devices(device_id)["name"] if device_id is not None else "default"
             print(f"STARTED RECORDING ({label}) - Using Mic: {mic_name}")
-            if self._on_start:
-                self._on_start(language)
         else:
             self.is_recording = False
             audio_data = self._recorder.stop_recording()
             play_stop()
-            print(f"STOPPED RECORDING — captured {len(audio_data) / SAMPLE_RATE:.2f}s of audio")
-            _save_debug_wav(audio_data)
-            play_done()
-            if self._on_stop:
-                self._on_stop(audio_data)
+            duration = len(audio_data) / SAMPLE_RATE
+            print(f"STOPPED RECORDING — captured {duration:.2f}s — transcribing...")
+            # Run transcription off the pynput callback thread
+            threading.Thread(
+                target=self._transcribe_and_output,
+                args=(audio_data, self._active_language),
+                daemon=True,
+            ).start()
+
+    def _transcribe_and_output(self, audio_data: np.ndarray, language: str) -> None:
+        text = self._engine.transcribe(audio_data, language)
+        print(f"TRANSCRIBED: {text}")
+        output_handler.type_text(text)
+        output_handler.log_transcription(text)
+        play_done()
 
     def _handle_release(self, key):
-        # Only used to clear the held-key tracker so the next press fires correctly
         self._held.discard(key)
 
     def start(self) -> None:

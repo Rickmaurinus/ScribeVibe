@@ -46,10 +46,12 @@ def get_clean_mic_list() -> list[tuple[int, str, str]]:
         api_name = hostapis[d["hostapi"]]["name"]
         candidates.append((i, name, api_name))
 
-    # Prefer WASAPI > DirectSound > MME when the same device appears under multiple APIs
-    api_priority = {"Windows WASAPI": 0, "Windows DirectSound": 1, "MME": 2}
+    # Prefer MME > DirectSound > WASAPI.
+    # MME uses WinMM (not KS) internally, making it the most compatible
+    # choice with PortAudio on Windows — especially for virtual/GoXLR devices.
+    api_priority = {"MME": 0, "Windows DirectSound": 1, "Windows WASAPI": 2}
 
-    # First pass: exact-name deduplication (handles full-name duplicates)
+    # First pass: among full-name duplicates keep the highest-priority API
     best: dict[str, tuple[int, str, str]] = {}
     for i, name, api in candidates:
         key = name.lower()
@@ -59,12 +61,12 @@ def get_clean_mic_list() -> list[tuple[int, str, str]]:
             if api_priority.get(api, 99) < api_priority.get(best[key][2], 99):
                 best[key] = (i, name, api)
 
-    # Second pass: drop MME entries whose truncated name is a prefix of a
-    # non-MME entry — MME caps names at 31 chars, creating false duplicates
-    non_mme_names = [n.lower() for _, n, a in best.values() if a != "MME"]
+    # Second pass: drop non-MME entries whose name is a longer version of an
+    # already-accepted MME entry (MME names are truncated to 31 chars)
+    mme_names = [n.lower() for _, n, a in best.values() if a == "MME"]
     deduped = {
         k: v for k, v in best.items()
-        if v[2] != "MME" or not any(n.startswith(k) for n in non_mme_names)
+        if v[2] == "MME" or not any(k.startswith(m) for m in mme_names)
     }
 
     return sorted(deduped.values(), key=lambda x: x[0])
@@ -80,7 +82,7 @@ def main() -> None:
     print("\n--- Available Input Devices ---")
     valid_ids = set()
     for i, name, api in mics:
-        api_tag = f"[*{api}*]" if "WASAPI" in api else f"[{api}]"
+        api_tag = f"[*{api}*]" if api == "MME" else f"[{api}]"
         print(f"  [{i:2}]  {name[:48]:<48}  {api_tag}")
         valid_ids.add(i)
     print("-------------------------------\n")

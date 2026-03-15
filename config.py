@@ -5,7 +5,7 @@ SETTINGS_FILE = "settings.json"
 
 DEFAULTS = {
     "device_id": None,
-    "model_name": "openai/whisper-base.en",
+    "model_name": "openai/whisper-base",
     "language": "en",
     "hotkey_english": "f13",
     "hotkey_dutch": "f14",

@@ -1,6 +1,6 @@
 {
-  "device_id": 45,
-  "model_name": "openai/whisper-base.en",
+  "device_id": 5,
+  "model_name": "openai/whisper-base",
   "language": "en",
   "hotkey_english": "f13",
   "hotkey_dutch": "f14",

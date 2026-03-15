@@ -79,11 +79,34 @@ def copy_to_hidden_clipboard(text: str) -> None:
         win32clipboard.CloseClipboard()
 
 
+_MAX_LOG_ENTRIES = 500
+_log_count = 0
+
+
 def log_transcription(text: str, model_name: str = "", transcription_time: float = 0.0) -> None:
     """Append a timestamped entry with model and timing info to the log file."""
+    global _log_count
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     meta = f"{model_name} | {transcription_time:.2f}s"
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{timestamp}] [{meta}] {text}\n")
+
+    _log_count += 1
+    if _log_count >= 50:
+        _log_count = 0
+        _trim_log()
+
     if _log_hook:
         _log_hook(timestamp, meta, text)
+
+
+def _trim_log() -> None:
+    """Keep only the most recent entries if the log exceeds the limit."""
+    try:
+        with open(LOG_FILE, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        if len(lines) > _MAX_LOG_ENTRIES:
+            with open(LOG_FILE, "w", encoding="utf-8") as f:
+                f.writelines(lines[-_MAX_LOG_ENTRIES:])
+    except FileNotFoundError:
+        pass

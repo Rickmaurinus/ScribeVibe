@@ -65,8 +65,9 @@ class HotkeyListener:
     Second press → stop, transcribe, type, play done.wav
     """
 
-    def __init__(self, engine: WhisperEngine) -> None:
+    def __init__(self, engine: WhisperEngine, indicator=None) -> None:
         self._engine = engine
+        self._indicator = indicator
         self._recorder = AudioRecorder()
         self.is_recording = False
         self._active_language = "en"
@@ -126,6 +127,8 @@ class HotkeyListener:
             return
 
         self.is_recording = True
+        if self._indicator:
+            self._indicator.show()
 
         # Pre-fetch model during recording if a swap is needed
         if self._engine.current_model != self._active_model_size:
@@ -148,6 +151,8 @@ class HotkeyListener:
 
     def _stop_recording(self):
         self.is_recording = False
+        if self._indicator:
+            self._indicator.hide()
         _play(_SND_STOP)
 
         # Grab raw buffer — fast, no concat/resample on this thread
@@ -167,6 +172,8 @@ class HotkeyListener:
             task = self._queue.get()
             try:
                 self._process_task(task)
+            except Exception as e:
+                print(f"ERROR in transcription worker: {e}")
             finally:
                 self._queue.task_done()
 

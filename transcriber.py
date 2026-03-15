@@ -3,6 +3,7 @@
 Supports hot-swapping models in VRAM via ensure_model().
 """
 import gc
+import os
 import threading
 import time
 
@@ -11,11 +12,31 @@ import torch
 from faster_whisper import WhisperModel
 
 
+def _is_model_cached(model_size: str) -> bool:
+    """Check if a model is already downloaded locally."""
+    # Built-in size names are cached by huggingface_hub
+    try:
+        cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub")
+        if not os.path.isdir(cache_dir):
+            return False
+        # Check for the model directory pattern
+        for entry in os.listdir(cache_dir):
+            model_id = model_size.replace("/", "--")
+            if model_id in entry or f"models--{model_id}" in entry:
+                return True
+        # Built-in short names (small.en, medium, etc.) use Systran repos
+        systran_id = f"models--Systran--faster-whisper-{model_size}"
+        return os.path.isdir(os.path.join(cache_dir, systran_id))
+    except OSError:
+        return True  # assume cached on error to avoid false notifications
+
+
 class WhisperEngine:
     def __init__(self, model_size: str | None = None) -> None:
         self._model: WhisperModel | None = None
         self.current_model: str | None = None
         self._lock = threading.Lock()
+        self._notify_fn = None  # set by main.py for download notifications
         if model_size is not None:
             self.ensure_model(model_size)
 
@@ -31,6 +52,13 @@ class WhisperEngine:
                 self._model = None
                 gc.collect()
                 torch.cuda.empty_cache()
+
+            downloading = not _is_model_cached(model_size)
+            if downloading:
+                msg = f"Downloading model '{model_size}'... this may take a minute."
+                print(msg)
+                if self._notify_fn:
+                    self._notify_fn(msg)
 
             print(f"Loading model '{model_size}' onto GPU (int8_float16)...")
             self._model = WhisperModel(

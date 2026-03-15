@@ -6,3 +6,5 @@ models/
 # Runtime files
 settings.json
 transcription_log.txt
+scribevibe.log
+scribevibe.log.1

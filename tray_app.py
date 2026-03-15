@@ -1,13 +1,54 @@
 """System tray interface for ScribeVibe."""
+import sys
 import threading
 
 import pystray
 import sounddevice as sd
 from PIL import Image, ImageDraw
 
+import os
+import winreg
+
 import config
 from history_ui import show_history
 from select_mic import get_clean_mic_list
+
+# ── Auto-start helpers ──────────────────────────────────────────────
+
+_REG_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+_APP_NAME = "ScribeVibe"
+
+
+def _get_startup_command() -> str:
+    """Return the command to launch ScribeVibe at startup."""
+    return f'"{sys.executable}" "{os.path.abspath("main.py")}"'
+
+
+def _is_autostart_enabled() -> bool:
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, _REG_KEY, 0, winreg.KEY_READ)
+        winreg.QueryValueEx(key, _APP_NAME)
+        winreg.CloseKey(key)
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+
+
+def _set_autostart(enabled: bool) -> None:
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, _REG_KEY, 0, winreg.KEY_SET_VALUE)
+        if enabled:
+            winreg.SetValueEx(key, _APP_NAME, 0, winreg.REG_SZ, _get_startup_command())
+        else:
+            try:
+                winreg.DeleteValue(key, _APP_NAME)
+            except FileNotFoundError:
+                pass
+        winreg.CloseKey(key)
+    except OSError as e:
+        print(f"Registry error: {e}")
 
 # ── Model definitions ───────────────────────────────────────────────
 
@@ -141,6 +182,11 @@ class TrayApp:
             for ms, label in NL_MODELS
         ))
 
+    # ── autostart ──────────────────────────────────────────────────
+
+    def _toggle_autostart(self, _icon, _item) -> None:
+        _set_autostart(not _is_autostart_enabled())
+
     def _build_menu(self):
         return pystray.Menu(
             pystray.MenuItem("Microphone", self._build_mic_menu()),
@@ -149,6 +195,11 @@ class TrayApp:
             pystray.MenuItem("Dutch Model", self._build_nl_menu()),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("History...", self._open_history),
+            pystray.MenuItem(
+                "Start with Windows",
+                self._toggle_autostart,
+                checked=lambda _item: _is_autostart_enabled(),
+            ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", self._quit),
         )
@@ -166,10 +217,11 @@ class TrayApp:
 
     def run(self) -> None:
         """Blocking — run on a dedicated thread."""
+        from main import __version__
         self._icon = pystray.Icon(
             name="ScribeVibe",
             icon=_generate_icon(),
-            title="ScribeVibe",
+            title=f"ScribeVibe v{__version__}",
             menu=self._build_menu(),
         )
         self._icon.run()

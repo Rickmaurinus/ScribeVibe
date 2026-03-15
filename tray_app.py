@@ -8,7 +8,6 @@ from PIL import Image, ImageDraw
 import config
 from history_ui import show_history
 from select_mic import get_clean_mic_list
-from transcriber import WhisperEngine
 
 # ── Model definitions ───────────────────────────────────────────────
 
@@ -41,8 +40,7 @@ def _generate_icon() -> Image.Image:
 class TrayApp:
     """System tray icon with model-switching menus."""
 
-    def __init__(self, engine: WhisperEngine) -> None:
-        self._engine = engine
+    def __init__(self) -> None:
         self._icon: pystray.Icon | None = None
 
     # ── mic switching ───────────────────────────────────────────────
@@ -86,19 +84,15 @@ class TrayApp:
 
     def _switch_en(self, model_size: str) -> None:
         config.set_model_size_en(model_size)
-        threading.Thread(target=self._load_and_notify, args=(model_size, "English"), daemon=True).start()
+        if self._icon:
+            self._icon.notify(f"English model set to: {model_size}",
+                              "ScribeVibe — Model Changed")
 
     def _switch_nl(self, model_size: str) -> None:
         config.set_model_size_nl(model_size)
-        threading.Thread(target=self._load_and_notify, args=(model_size, "Dutch"), daemon=True).start()
-
-    def _load_and_notify(self, model_size: str, lang_label: str) -> None:
-        self._engine.ensure_model(model_size)
         if self._icon:
-            self._icon.notify(
-                f"{lang_label} model set to: {model_size}",
-                "ScribeVibe — Model Swapped",
-            )
+            self._icon.notify(f"Dutch model set to: {model_size}",
+                              "ScribeVibe — Model Changed")
 
     # ── menu builders ───────────────────────────────────────────────
 
@@ -172,6 +166,11 @@ class TrayApp:
             menu=self._build_menu(),
         )
         self._icon.run()
+
+    def notify(self, message: str, title: str = "ScribeVibe") -> None:
+        """Show a Windows toast notification (safe to call before icon is ready)."""
+        if self._icon:
+            self._icon.notify(message, title)
 
     def stop(self) -> None:
         if self._icon:

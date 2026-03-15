@@ -1,7 +1,8 @@
 {
-  "device_id": 3,
-  "model_size_en": "medium.en",
+  "device_id": 1,
+  "model_size_en": "small.en",
   "model_size_nl": "medium",
+  "beam_size": 2,
   "hotkey_english": "f13",
   "hotkey_dutch": "f14",
   "sound_start": "assets/start.wav",

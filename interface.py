@@ -11,6 +11,7 @@ import os
 import queue
 import sys
 import threading
+import time
 import winsound
 
 import numpy as np
@@ -31,27 +32,23 @@ def get_resource_path(relative_path: str) -> str:
     return os.path.join(os.path.abspath("."), relative_path)
 
 
-# ── audio feedback helpers ──────────────────────────────────────────
+# ── audio feedback — cached file paths, native async playback ────────
+
+_cfg = config.load()
+_SND_START: str = get_resource_path(_cfg["sound_start"])
+_SND_STOP:  str = get_resource_path(_cfg["sound_stop"])
+_SND_DONE:  str = get_resource_path(_cfg["sound_done"])
+del _cfg
+
+# Pre-warm the OS file cache by reading each file once at startup
+for _p in (_SND_START, _SND_STOP, _SND_DONE):
+    with open(_p, "rb") as _f:
+        _f.read()
+
 
 def _play(path: str) -> None:
-    resolved = get_resource_path(path)
-    threading.Thread(
-        target=winsound.PlaySound,
-        args=(resolved, winsound.SND_FILENAME | winsound.SND_ASYNC),
-        daemon=True,
-    ).start()
-
-
-def play_start() -> None:
-    _play(config.load()["sound_start"])
-
-
-def play_stop() -> None:
-    _play(config.load()["sound_stop"])
-
-
-def play_done() -> None:
-    _play(config.load()["sound_done"])
+    """Play a WAV file asynchronously — returns instantly, no threads needed."""
+    winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
 
 def _key_from_name(name: str) -> keyboard.Key:
@@ -74,40 +71,52 @@ class HotkeyListener:
         self.is_recording = False
         self._active_language = "en"
         self._active_model_size = "small.en"
-        self._held: set = set()
+        self._last_toggle = 0.0  # monotonic timestamp — debounce guard
         self._listener = None
         self._queue: queue.Queue = queue.Queue()
         self._worker = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
 
-    def _settings(self):
-        return config.load()
+        # Cache hotkey objects — avoids config.load() + getattr on every keypress
+        cfg = config.load()
+        self._key_en = _key_from_name(cfg["hotkey_english"])
+        self._key_nl = _key_from_name(cfg["hotkey_dutch"])
+
+        # Pre-open mic stream so first F13 press is instant
+        device_id = cfg.get("device_id")
+        try:
+            self._recorder.open_stream(device_id)
+        except RuntimeError as e:
+            print(f"WARNING: Could not pre-open mic: {e}")
 
     def _handle_press(self, key):
-        cfg = self._settings()
-        key_en = _key_from_name(cfg["hotkey_english"])
-        key_nl = _key_from_name(cfg["hotkey_dutch"])
+        # Fast reject for non-hotkey presses — no disk I/O
+        if key not in (self._key_en, self._key_nl):
+            return
 
-        if key in self._held:
+        # Debounce: ignore presses within 250ms of last toggle
+        now = time.monotonic()
+        if now - self._last_toggle < 0.25:
             return
-        if key not in (key_en, key_nl):
-            return
-        self._held.add(key)
+        self._last_toggle = now
 
         if not self.is_recording:
-            self._start_recording(key, key_en, cfg)
+            self._start_recording(key)
         else:
             self._stop_recording()
 
-    def _start_recording(self, key, key_en, cfg):
-        self._active_language = "en" if key == key_en else "nl"
+    def _start_recording(self, key):
+        cfg = config.load()
+        self._active_language = "en" if key == self._key_en else "nl"
         device_id = cfg.get("device_id")
 
-        # Capture target model (actual loading deferred to the worker thread)
         model_key = "model_size_en" if self._active_language == "en" else "model_size_nl"
         self._active_model_size = cfg.get(
             model_key, "small.en" if self._active_language == "en" else "small"
         )
+
+        # Fire chime from RAM (SND_ASYNC returns instantly), then open mic
+        _play(_SND_START)
 
         try:
             self._recorder.start_recording(device_id)
@@ -117,22 +126,26 @@ class HotkeyListener:
             return
 
         self.is_recording = True
-        play_start()
-        label = "ENGLISH" if self._active_language == "en" else "DUTCH"
+        threading.Thread(
+            target=self._log_recording_start,
+            args=(device_id, self._active_language, self._active_model_size),
+            daemon=True,
+        ).start()
+
+    def _log_recording_start(self, device_id, lang, model):
+        label = "ENGLISH" if lang == "en" else "DUTCH"
         mic_name = sd.query_devices(device_id)["name"] if device_id is not None else "default"
-        print(f"RECORDING ({label}) — Model: {self._active_model_size} — Mic: {mic_name}")
+        print(f"RECORDING ({label}) — Model: {model} — Mic: {mic_name}")
 
     def _stop_recording(self):
         self.is_recording = False
-        play_stop()
+        _play(_SND_STOP)
 
-        audio_data = self._recorder.stop_recording()
-        duration = len(audio_data) / SAMPLE_RATE
-        print(f"STOPPED — {duration:.1f}s captured — queued for transcription")
+        # Grab raw buffer — fast, no concat/resample on this thread
+        raw = self._recorder.stop_recording_raw()
 
-        # Enqueue the task; the worker thread handles the rest
         self._queue.put({
-            "audio": audio_data,
+            "raw": raw,
             "lang": self._active_language,
             "model_size": self._active_model_size,
         })
@@ -149,28 +162,31 @@ class HotkeyListener:
                 self._queue.task_done()
 
     def _process_task(self, task: dict) -> None:
-        audio_data = task["audio"]
         language   = task["lang"]
         model_size = task["model_size"]
 
-        self._engine.ensure_model(model_size)
+        # Heavy work: concat + resample (deferred from the hotkey thread)
+        audio_data = AudioRecorder.process_raw(task["raw"])
         audio_duration = len(audio_data) / SAMPLE_RATE
-        text, transcribe_time = self._engine.transcribe(audio_data, language)
+        if audio_duration < 0.1:
+            _play(_SND_DONE)
+            return
+
+        print(f"Processing {audio_duration:.1f}s of audio...")
+        self._engine.ensure_model(model_size)
+        beam_size = config.load().get("beam_size", 2)
+        text, transcribe_time = self._engine.transcribe(audio_data, language, beam_size=beam_size)
         if text:
             rtf = audio_duration / transcribe_time if transcribe_time > 0 else 0
             print(f"TRANSCRIBED in {transcribe_time:.2f}s: {text}")
             print(f"  Speed: {rtf:.1f}x faster than real-time")
             output_handler.type_text(text)
             output_handler.log_transcription(text, model_size, transcribe_time)
-        play_done()
-
-    def _handle_release(self, key):
-        self._held.discard(key)
+        _play(_SND_DONE)
 
     def start(self) -> None:
         self._listener = keyboard.Listener(
             on_press=self._handle_press,
-            on_release=self._handle_release,
         )
         self._listener.start()
 

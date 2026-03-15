@@ -1,0 +1,7 @@
+transformers
+sounddevice
+numpy
+pynput
+pyautogui
+webrtcvad
+scipy

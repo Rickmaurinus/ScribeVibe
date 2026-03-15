@@ -1,0 +1,10 @@
+{
+  "device_id": 45,
+  "model_name": "openai/whisper-base.en",
+  "language": "en",
+  "hotkey_english": "f13",
+  "hotkey_dutch": "f14",
+  "sound_start": "assets/start.wav",
+  "sound_stop": "assets/stop.wav",
+  "sound_done": "assets/done.wav"
+}

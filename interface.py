@@ -7,6 +7,8 @@ Hotkeys (configurable in config.py / settings.json):
 
 "Wait & Blitz": record the full utterance, transcribe on stop, type the result.
 """
+import ctypes
+import ctypes.wintypes as wt
 import os
 import queue
 import sys
@@ -65,9 +67,11 @@ class HotkeyListener:
     Second press → stop, transcribe, type, play done.wav
     """
 
-    def __init__(self, engine: WhisperEngine, indicator=None) -> None:
+    def __init__(self, engine: WhisperEngine, indicator=None,
+                 language_overlay=None) -> None:
         self._engine = engine
         self._indicator = indicator
+        self._language_overlay = language_overlay
         self._recorder = AudioRecorder()
         self.is_recording = False
         self._active_language = "en"
@@ -105,6 +109,127 @@ class HotkeyListener:
             self._start_recording(key)
         else:
             self._stop_recording()
+
+    # ── Insert / Pause — Win32 low-level hook with suppression ─────────
+
+    def _insert_toggle(self) -> None:
+        """Called from the Win32 hook when Insert is pressed."""
+        now = time.monotonic()
+        if now - self._last_toggle < 0.25:
+            return
+        self._last_toggle = now
+
+        if not self.is_recording:
+            proxy_key = self._key_en if self._active_language == "en" else self._key_nl
+            self._start_recording(proxy_key)
+        else:
+            self._stop_recording()
+
+    def _pause_switch_language(self) -> None:
+        """Called from the Win32 hook when Pause is pressed.
+        Toggles between English and Dutch, shows overlay, preloads model."""
+        # Don't switch while recording
+        if self.is_recording:
+            return
+
+        cfg = config.load()
+        if self._active_language == "en":
+            self._active_language = "nl"
+            model_key = "model_size_nl"
+            fallback = "small"
+        else:
+            self._active_language = "en"
+            model_key = "model_size_en"
+            fallback = "small.en"
+
+        self._active_model_size = cfg.get(model_key, fallback)
+
+        label = "ENGLISH" if self._active_language == "en" else "DUTCH"
+        print(f"Language switched to {label} — Model: {self._active_model_size}")
+
+        # Show fading overlay
+        if self._language_overlay:
+            self._language_overlay.show(self._active_language)
+
+        # Preload model in background
+        threading.Thread(
+            target=self._engine.ensure_model,
+            args=(self._active_model_size,),
+            daemon=True,
+        ).start()
+
+    def _install_key_hooks(self) -> None:
+        """Low-level keyboard hook that intercepts Insert and Pause,
+        suppresses their default behaviour and triggers our actions."""
+        VK_INSERT = 0x2D
+        VK_PAUSE = 0x13
+
+        # Completely separate user32 handle — avoids type conflicts with pynput
+        _u32 = ctypes.WinDLL("user32", use_last_error=True)
+
+        # Define all types using only ctypes primitives (no wintypes aliases)
+        LRESULT = ctypes.c_ssize_t
+        WPARAM = ctypes.c_size_t
+        LPARAM = ctypes.c_ssize_t
+
+        LLKeyboardProc = ctypes.WINFUNCTYPE(LRESULT, ctypes.c_int, WPARAM, LPARAM)
+
+        _u32.SetWindowsHookExW.argtypes = [
+            ctypes.c_int, LLKeyboardProc, ctypes.c_void_p, ctypes.c_ulong,
+        ]
+        _u32.SetWindowsHookExW.restype = ctypes.c_void_p
+
+        _u32.CallNextHookEx.argtypes = [
+            ctypes.c_void_p, ctypes.c_int, WPARAM, LPARAM,
+        ]
+        _u32.CallNextHookEx.restype = LRESULT
+
+        _u32.UnhookWindowsHookEx.argtypes = [ctypes.c_void_p]
+        _u32.UnhookWindowsHookEx.restype = ctypes.c_int
+
+        _u32.GetMessageW.argtypes = [
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint,
+        ]
+        _u32.GetMessageW.restype = ctypes.c_int
+
+        listener_self = self  # prevent closure issues
+
+        def hook_proc(nCode, wParam, lParam):
+            try:
+                if nCode >= 0:
+                    # vkCode is the first DWORD in KBDLLHOOKSTRUCT
+                    vk = ctypes.cast(lParam, ctypes.POINTER(ctypes.c_ulong)).contents.value
+                    is_down = wParam in (0x0100, 0x0104)  # WM_KEYDOWN / WM_SYSKEYDOWN
+
+                    if vk == VK_INSERT:
+                        if is_down:
+                            listener_self._insert_toggle()
+                        return 1  # suppress
+
+                    if vk == VK_PAUSE:
+                        if is_down:
+                            listener_self._pause_switch_language()
+                        return 1  # suppress
+            except Exception:
+                pass
+            return _u32.CallNextHookEx(None, nCode, wParam, lParam)
+
+        # prevent GC of the callback
+        self._hook_proc_ref = LLKeyboardProc(hook_proc)
+
+        def _run_hook():
+            hook = _u32.SetWindowsHookExW(13, self._hook_proc_ref, None, 0)
+            if not hook:
+                err = ctypes.get_last_error()
+                print(f"WARNING: Key hook failed (error {err})")
+                return
+            print("Key hooks installed — Insert (record) + Pause (switch language).")
+            msg = (ctypes.c_byte * 48)()  # MSG struct buffer
+            while _u32.GetMessageW(msg, None, 0, 0) > 0:
+                pass
+            _u32.UnhookWindowsHookEx(hook)
+
+        threading.Thread(target=_run_hook, daemon=True).start()
 
     def _start_recording(self, key):
         cfg = config.load()
@@ -206,6 +331,7 @@ class HotkeyListener:
             on_press=self._handle_press,
         )
         self._listener.start()
+        self._install_key_hooks()
 
     def stop(self) -> None:
         if self._listener:

@@ -51,3 +51,17 @@
 [2026-03-15 20:04:21] [Systran/faster-distil-whisper-large-v3 | 1.20s] This already looks really great, but I would like that circle to be smaller, so it should be about 40% smaller than it currently is. And I would like it if it could look like glass, so that the other circle is like a glass red that looks 3D and make it super realistic.
 [2026-03-15 20:05:21] [Systran/faster-distil-whisper-large-v3 | 0.83s] How do I make a repository from private to public in GitHub?
 [2026-03-15 20:06:51] [Systran/faster-distil-whisper-large-v3 | 0.77s] We're gonna talk. We're gonna talk, talk, talk, talk, talk.
+[2026-03-15 20:11:39] [Systran/faster-distil-whisper-large-v3 | 1.14s] Please add the possibility to also start the recording if we press the space bar and the right alt key. Only the right alt key together with the space bar, not the left one. And in that case, I want to start the currently selected language. So not Dutch, not English, just the currently selected one. Is that possible?
+[2026-03-15 20:15:38] [Systran/faster-distil-whisper-large-v3 | 0.97s] Okay, we're recording here. We're recording here.
+[2026-03-15 20:15:54] [Systran/faster-distil-whisper-large-v3 | 0.80s] Yes, we're here.
+[2026-03-15 20:22:23] [Systran/faster-distil-whisper-large-v3 | 0.72s] Okay, does this work? Are we now recording? I hope so.
+[2026-03-15 20:22:29] [Systran/faster-distil-whisper-large-v3 | 0.74s] I'm trying my insert button.
+[2026-03-15 20:30:46] [Systran/faster-distil-whisper-large-v3 | 0.96s] Okay, we're recording here
+[2026-03-15 20:33:24] [Systran/faster-distil-whisper-large-v3 | 0.98s] Okay, I want to be recording this in English. See if it works. Let's see if it works. Okay.
+[2026-03-15 20:33:36] [Systran/faster-distil-whisper-large-v3 | 0.92s] Okay, we're going to record a little bit more. We disable the insert key and it's all working. Does it work?
+[2026-03-15 20:33:42] [Systran/faster-distil-whisper-large-v3 | 0.93s] Yep, we're doing it. We're doing it as we can.
+[2026-03-15 20:35:05] [Systran/faster-distil-whisper-large-v3 | 2.20s] This works perfect. Okay, knowing this, I would like to keep the behavior for the insert key the same. So insert will start the currently selective model. I also want to configure the pause button. Whenever we press pause, I want the model to switch language. So if it was in English, I wanted to switch to Dutch. If it wasn't Dutch, I wanted to switch to English and always towards the currently selected model. those languages. If I ever want to swap that, I'll have to go to the menu, right click on the icon in the tray, and then swap it. But for now, I want the pause button to change the language. And when we do that, I also want to include a functionality that shows what language is selected. Make that text appear with the language in the middle of the screen and then slowly make it fade away.
+[2026-03-15 20:37:08] [Systran/faster-distil-whisper-large-v3 | 0.72s] Okay, we're now recording in English. Show me the money.
+[2026-03-15 20:37:28] [deepdml/faster-whisper-large-v3-turbo-ct2 | 0.93s] We're now recording in Dutch. Let's see what we're doing. We're now recording in Dutch.
+[2026-03-15 20:37:35] [deepdml/faster-whisper-large-v3-turbo-ct2 | 0.98s] Eigenlijk zijn we nu in het Nederlands aan het opnemen. Klopt dat?
+[2026-03-15 20:37:49] [Systran/faster-distil-whisper-large-v3 | 0.60s] We're now recording in English and that all just works fine.

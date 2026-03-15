@@ -18,6 +18,7 @@ except Exception:
 import config
 from transcriber import WhisperEngine
 from interface import HotkeyListener
+from language_overlay import LanguageOverlay
 from recording_indicator import RecordingIndicator
 from tray_app import TrayApp
 
@@ -77,7 +78,11 @@ if __name__ == "__main__":
     indicator = RecordingIndicator()
     indicator.start()
 
-    listener = HotkeyListener(engine=engine, indicator=indicator)
+    lang_overlay = LanguageOverlay()
+    lang_overlay.start()
+
+    listener = HotkeyListener(engine=engine, indicator=indicator,
+                              language_overlay=lang_overlay)
     listener.start()
 
     # Eager model load + CUDA warm-up in background
@@ -87,7 +92,7 @@ if __name__ == "__main__":
         daemon=True,
     ).start()
 
-    print(f"\nScribeVibe ready. F13=English  F14=Dutch  Ctrl+C to quit.\n")
+    print(f"\nScribeVibe ready. F13=English  F14=Dutch  Insert=Record  Pause=Switch language  Ctrl+C to quit.\n")
     try:
         listener.join()
     except KeyboardInterrupt:

@@ -21,6 +21,7 @@ class AudioRecorder:
         self._stream_rate: int = TARGET_SAMPLE_RATE
         self._needs_resample: bool = False
         self._current_device: int | None = None
+        self._live_callback = None  # called with each audio chunk while capturing
 
     # ── stream lifecycle (called once, or when mic changes) ──────────
 
@@ -34,7 +35,13 @@ class AudioRecorder:
 
         def _callback(indata, frames, time_info, status):
             if self._capturing:
-                self._buffer.append(indata.copy())
+                chunk = indata.copy()
+                self._buffer.append(chunk)
+                if self._live_callback is not None:
+                    try:
+                        self._live_callback(chunk)
+                    except Exception:
+                        pass
 
         # Try native 16 kHz first — lets PortAudio handle resampling in hardware
         try:

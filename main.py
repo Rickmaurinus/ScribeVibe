@@ -65,6 +65,10 @@ if __name__ == "__main__":
     _setup_logging()
     logging.info(f"ScribeVibe v{__version__} starting...")
 
+    # PySide6 QApplication must live on the main thread
+    from PySide6.QtWidgets import QApplication
+    app = QApplication(sys.argv)
+
     cfg = config.load()
     engine = WhisperEngine()
 
@@ -76,7 +80,7 @@ if __name__ == "__main__":
     engine._notify_fn = tray.notify
 
     indicator = RecordingIndicator()
-    indicator.start()
+    indicator.create_widget()  # must be called after QApplication exists
 
     lang_overlay = LanguageOverlay()
     lang_overlay.start()
@@ -93,9 +97,6 @@ if __name__ == "__main__":
     ).start()
 
     print(f"\nScribeVibe ready. F13=English  F14=Dutch  Insert=Record  Pause=Switch language  Ctrl+C to quit.\n")
-    try:
-        listener.join()
-    except KeyboardInterrupt:
-        listener.stop()
-        tray.stop()
-        print("\nExiting.")
+
+    # Run the Qt event loop on the main thread (required by PySide6)
+    sys.exit(app.exec())

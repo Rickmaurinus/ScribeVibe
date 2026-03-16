@@ -65,3 +65,5 @@
 [2026-03-15 20:37:28] [deepdml/faster-whisper-large-v3-turbo-ct2 | 0.93s] We're now recording in Dutch. Let's see what we're doing. We're now recording in Dutch.
 [2026-03-15 20:37:35] [deepdml/faster-whisper-large-v3-turbo-ct2 | 0.98s] Eigenlijk zijn we nu in het Nederlands aan het opnemen. Klopt dat?
 [2026-03-15 20:37:49] [Systran/faster-distil-whisper-large-v3 | 0.60s] We're now recording in English and that all just works fine.
+[2026-03-16 08:23:26] [Systran/faster-distil-whisper-large-v3 | 2.38s] Show me, show me what it sounds like. Show me. Show me what it feels like. Show me. Yeah, show me what it feels like. Yeah, show me what it feels like, yeah.
+[2026-03-16 08:24:51] [Systran/faster-distil-whisper-large-v3 | 1.09s] Show me what it feels like. Nah, nah, nah, nah, nah, nah, nah, nah. Show me what it feels like. Yadahangba, yeah, that'shambah, yeah, that'shambah, yeah,

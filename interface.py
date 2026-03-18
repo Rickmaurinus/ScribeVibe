@@ -142,7 +142,6 @@ class HotkeyListener:
         VK_ESCAPE = 0x1B
         VK_SHIFT = 0xA0   # VK_LSHIFT — used by GetAsyncKeyState
 
-        # Completely separate user32 handle — avoids type conflicts with pynput
         _u32 = ctypes.WinDLL("user32", use_last_error=True)
 
         # Define all types using only ctypes primitives (no wintypes aliases)

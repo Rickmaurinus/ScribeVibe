@@ -60,9 +60,11 @@ class WhisperEngine:
                 if self._notify_fn:
                     self._notify_fn(msg)
 
+            cached = not downloading
             print(f"Loading model '{model_size}' onto GPU (int8_float16)...")
             self._model = WhisperModel(
-                model_size, device="cuda", compute_type="int8_float16"
+                model_size, device="cuda", compute_type="int8_float16",
+                local_files_only=cached,
             )
             self.current_model = model_size
             print("Model ready.")

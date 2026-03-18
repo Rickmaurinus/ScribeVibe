@@ -23,6 +23,7 @@ from recording_indicator import RecordingIndicator
 from transcribing_indicator import TranscribingIndicator
 from tray_app import TrayApp
 import history_ui
+import output_handler
 
 
 def _setup_logging() -> None:
@@ -77,8 +78,7 @@ if __name__ == "__main__":
     engine = WhisperEngine()
 
     tray = TrayApp(engine=engine)
-    tray_thread = threading.Thread(target=tray.run, daemon=True)
-    tray_thread.start()
+    tray.setup()  # Qt tray icon — runs on main thread
 
     # Wire up download notifications
     engine._notify_fn = tray.notify
@@ -104,6 +104,16 @@ if __name__ == "__main__":
         args=(engine, tray, cfg["model_size_en"]),
         daemon=True,
     ).start()
+
+    def _shutdown():
+        logging.info("Shutting down...")
+        listener._recorder._close_stream()
+        lang_overlay.stop()
+        tray.stop()
+        output_handler.set_log_hook(None)
+        logging.shutdown()
+
+    app.aboutToQuit.connect(_shutdown)
 
     print(f"\nScribeVibe ready. Insert=Record  Shift+Insert=Switch language  Escape=Abort  Ctrl+C to quit.\n")
 

@@ -3,10 +3,7 @@
   "model_size_en": "Systran/faster-distil-whisper-large-v3",
   "model_size_nl": "deepdml/faster-whisper-large-v3-turbo-ct2",
   "beam_size": 2,
-  "hotkey_english": "f13",
-  "hotkey_dutch": "f14",
   "sound_start": "assets/start.wav",
   "sound_stop": "assets/stop.wav",
-  "sound_done": "assets/done.wav",
-  "language": "en"
+  "sound_done": "assets/done.wav"
 }

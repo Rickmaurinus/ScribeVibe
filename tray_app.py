@@ -1,13 +1,14 @@
-"""System tray interface for ScribeVibe."""
+"""System tray interface for ScribeVibe (PySide6 QSystemTrayIcon)."""
+import io
 import sys
 import threading
-
-import pystray
-import sounddevice as sd
-from PIL import Image, ImageDraw
-
 import os
 import winreg
+
+from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtGui import QAction, QActionGroup, QIcon, QPixmap, QImage
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication
+from PIL import Image, ImageDraw
 
 import config
 from history_ui import show_history
@@ -67,6 +68,47 @@ NL_MODELS = [
     ("deepdml/faster-whisper-large-v3-turbo-ct2", "Large-v3-Turbo"),
 ]
 
+# ── Menu stylesheet ─────────────────────────────────────────────────
+
+_MENU_STYLE = """
+QMenu {
+    background-color: #f5f5f5;
+    color: #1a1a1a;
+    border: 1px solid #d0d0d0;
+    border-radius: 8px;
+    padding: 6px 0px;
+}
+QMenu::item {
+    padding: 6px 28px 6px 12px;
+    border-radius: 4px;
+    margin: 1px 6px;
+}
+QMenu::item:selected {
+    background-color: #d8e8f8;
+    color: #1a1a1a;
+}
+QMenu::separator {
+    height: 1px;
+    background: #d0d0d0;
+    margin: 4px 8px;
+}
+QMenu::indicator {
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+}
+"""
+
+
+def _pil_to_qicon(img: Image.Image) -> QIcon:
+    """Convert a PIL Image to a QIcon."""
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    qimg = QImage()
+    qimg.loadFromData(buf.read())
+    return QIcon(QPixmap.fromImage(qimg))
+
 
 def _generate_icon() -> Image.Image:
     """Create a simple 64x64 tray icon (green microphone circle)."""
@@ -81,60 +123,66 @@ def _generate_icon() -> Image.Image:
     return img
 
 
+class _NotifyBridge(QObject):
+    """Thread-safe bridge for notifications from worker threads."""
+    notify_signal = Signal(str, str)
+
+
 class TrayApp:
-    """System tray icon with model-switching menus."""
+    """System tray icon with model-switching menus (Qt-based)."""
 
     def __init__(self, engine=None) -> None:
-        self._icon: pystray.Icon | None = None
+        self._tray: QSystemTrayIcon | None = None
         self._engine = engine
+        self._bridge = _NotifyBridge()
+        self._bridge.notify_signal.connect(self._do_notify)
 
     # ── mic switching ───────────────────────────────────────────────
 
     def _switch_mic(self, device_id: int | None) -> None:
         config.set_device(device_id)
 
-    def _is_mic_checked(self, device_id: int | None):
-        return lambda _item: config.load().get("device_id") == device_id
+    def _build_mic_menu(self, parent: QMenu) -> QMenu:
+        menu = QMenu("Microphone", parent)
+        menu.setStyleSheet(_MENU_STYLE)
+        group = QActionGroup(menu)
+        group.setExclusive(True)
 
-    def _make_mic_action(self, device_id: int | None):
-        def action(icon, item):
-            self._switch_mic(device_id)
-        return action
+        current = config.load().get("device_id")
 
-    def _build_mic_menu(self):
-        items = [
-            pystray.MenuItem(
-                "Default",
-                self._make_mic_action(None),
-                checked=self._is_mic_checked(None),
-                radio=True,
-            )
-        ]
+        action = QAction("Default", menu)
+        action.setCheckable(True)
+        action.setChecked(current is None)
+        action.triggered.connect(lambda: self._switch_mic(None))
+        group.addAction(action)
+        menu.addAction(action)
+
         for device_id, name, _api in get_clean_mic_list():
-            items.append(pystray.MenuItem(
-                name,
-                self._make_mic_action(device_id),
-                checked=self._is_mic_checked(device_id),
-                radio=True,
-            ))
-        return pystray.Menu(*items)
+            a = QAction(name, menu)
+            a.setCheckable(True)
+            a.setChecked(current == device_id)
+            did = device_id  # capture
+            a.triggered.connect(lambda checked, d=did: self._switch_mic(d))
+            group.addAction(a)
+            menu.addAction(a)
+
+        return menu
 
     # ── model switching ─────────────────────────────────────────────
 
     def _switch_en(self, model_size: str) -> None:
         old_model = config.load().get("model_size_en")
         config.set_model_size_en(model_size)
-        # Only preload if the GPU currently holds the old English model
         if self._engine and self._engine.current_model == old_model:
             threading.Thread(
                 target=self._engine.ensure_model,
                 args=(model_size,),
                 daemon=True,
             ).start()
+
     def _switch_nl(self, model_size: str) -> None:
         old_model = config.load().get("model_size_nl")
         config.set_model_size_nl(model_size)
-        # Only preload if the GPU currently holds the old Dutch model
         if self._engine and self._engine.current_model == old_model:
             threading.Thread(
                 target=self._engine.ensure_model,
@@ -142,95 +190,97 @@ class TrayApp:
                 daemon=True,
             ).start()
 
-    # ── menu builders ───────────────────────────────────────────────
+    def _build_en_menu(self, parent: QMenu) -> QMenu:
+        menu = QMenu("English Model", parent)
+        menu.setStyleSheet(_MENU_STYLE)
+        group = QActionGroup(menu)
+        group.setExclusive(True)
+        current = config.load().get("model_size_en")
 
-    def _is_en_checked(self, model_size: str):
-        return lambda _item: config.load().get("model_size_en") == model_size
+        for ms, label in EN_MODELS:
+            a = QAction(label, menu)
+            a.setCheckable(True)
+            a.setChecked(current == ms)
+            a.triggered.connect(lambda checked, m=ms: self._switch_en(m))
+            group.addAction(a)
+            menu.addAction(a)
+        return menu
 
-    def _is_nl_checked(self, model_size: str):
-        return lambda _item: config.load().get("model_size_nl") == model_size
+    def _build_nl_menu(self, parent: QMenu) -> QMenu:
+        menu = QMenu("Dutch Model", parent)
+        menu.setStyleSheet(_MENU_STYLE)
+        group = QActionGroup(menu)
+        group.setExclusive(True)
+        current = config.load().get("model_size_nl")
 
-    def _make_en_action(self, ms):
-        def action(icon, item):
-            self._switch_en(ms)
-        return action
-
-    def _make_nl_action(self, ms):
-        def action(icon, item):
-            self._switch_nl(ms)
-        return action
-
-    def _build_en_menu(self):
-        return pystray.Menu(*(
-            pystray.MenuItem(
-                label,
-                self._make_en_action(ms),
-                checked=self._is_en_checked(ms),
-                radio=True,
-            )
-            for ms, label in EN_MODELS
-        ))
-
-    def _build_nl_menu(self):
-        return pystray.Menu(*(
-            pystray.MenuItem(
-                label,
-                self._make_nl_action(ms),
-                checked=self._is_nl_checked(ms),
-                radio=True,
-            )
-            for ms, label in NL_MODELS
-        ))
+        for ms, label in NL_MODELS:
+            a = QAction(label, menu)
+            a.setCheckable(True)
+            a.setChecked(current == ms)
+            a.triggered.connect(lambda checked, m=ms: self._switch_nl(m))
+            group.addAction(a)
+            menu.addAction(a)
+        return menu
 
     # ── autostart ──────────────────────────────────────────────────
 
-    def _toggle_autostart(self, _icon, _item) -> None:
+    def _toggle_autostart(self) -> None:
         _set_autostart(not _is_autostart_enabled())
+        if self._autostart_action:
+            self._autostart_action.setChecked(_is_autostart_enabled())
 
-    def _build_menu(self):
-        return pystray.Menu(
-            pystray.MenuItem("Microphone", self._build_mic_menu()),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("English Model", self._build_en_menu()),
-            pystray.MenuItem("Dutch Model", self._build_nl_menu()),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("History...", self._open_history),
-            pystray.MenuItem(
-                "Start with Windows",
-                self._toggle_autostart,
-                checked=lambda _item: _is_autostart_enabled(),
-            ),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Quit", self._quit),
-        )
+    # ── menu builder ─────────────────────────────────────────────────
 
-    # ── history ─────────────────────────────────────────────────────
+    def _build_menu(self) -> QMenu:
+        menu = QMenu()
+        menu.setStyleSheet(_MENU_STYLE)
 
-    def _open_history(self, _icon, _item) -> None:
-        show_history()
+        menu.addMenu(self._build_mic_menu(menu))
+        menu.addSeparator()
+        menu.addMenu(self._build_en_menu(menu))
+        menu.addMenu(self._build_nl_menu(menu))
+        menu.addSeparator()
+
+        history_action = menu.addAction("History...")
+        history_action.triggered.connect(lambda: show_history())
+
+        self._autostart_action = QAction("Start with Windows", menu)
+        self._autostart_action.setCheckable(True)
+        self._autostart_action.setChecked(_is_autostart_enabled())
+        self._autostart_action.triggered.connect(self._toggle_autostart)
+        menu.addAction(self._autostart_action)
+
+        menu.addSeparator()
+        quit_action = menu.addAction("Quit")
+        quit_action.triggered.connect(self._quit)
+
+        return menu
 
     # ── lifecycle ───────────────────────────────────────────────────
 
-    def _quit(self, _icon, _item) -> None:
-        if self._icon:
-            self._icon.stop()
+    def _quit(self) -> None:
+        app = QApplication.instance()
+        if app:
+            app.quit()
 
-    def run(self) -> None:
-        """Blocking — run on a dedicated thread."""
+    def setup(self) -> None:
+        """Create and show the tray icon. Must be called on the main (Qt) thread."""
         from main import __version__
-        self._icon = pystray.Icon(
-            name="ScribeVibe",
-            icon=_generate_icon(),
-            title=f"ScribeVibe v{__version__}",
-            menu=self._build_menu(),
-        )
-        self._icon.run()
+        icon = _pil_to_qicon(_generate_icon())
+        self._tray = QSystemTrayIcon(icon)
+        self._tray.setToolTip(f"ScribeVibe v{__version__}")
+        self._tray.setContextMenu(self._build_menu())
+        self._tray.show()
+
+    @Slot(str, str)
+    def _do_notify(self, message: str, title: str) -> None:
+        if self._tray:
+            self._tray.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information, 3000)
 
     def notify(self, message: str, title: str = "ScribeVibe") -> None:
-        """Show a Windows toast notification (safe to call before icon is ready)."""
-        if self._icon:
-            self._icon.notify(message, title)
+        """Show a Windows toast notification (thread-safe)."""
+        self._bridge.notify_signal.emit(message, title)
 
     def stop(self) -> None:
-        if self._icon:
-            self._icon.stop()
+        if self._tray:
+            self._tray.hide()

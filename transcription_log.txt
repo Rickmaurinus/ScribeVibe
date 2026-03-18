@@ -8,3 +8,15 @@
 [2026-03-18 18:14:08] [Systran/faster-distil-whisper-large-v3 | 0.99s] Test, test, test.
 [2026-03-18 19:15:25] [Systran/faster-distil-whisper-large-v3 | 0.68s] Yeah, I can well forester that.
 [2026-03-18 19:22:21] [Systran/faster-distil-whisper-large-v3 | 1.31s] Yeah, that is also. Yeah, I don't know, I think it's also hard. I have also colleagues that I think, well, if I do not, I think, well, if the Curinia, I don't know, I think that, I think that actually...
+[2026-03-18 20:51:18] [Systran/faster-distil-whisper-large-v3 | 1.51s] Okay, here we're recording in English. I'm going to see if this is translated in the right way. Here we go.
+[2026-03-18 20:51:30] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.35s] En nu wil ik dit traderen. We doen het in het Nederlands met een nieuwe opname. Oké.
+[2026-03-18 20:51:37] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.41s] En hier starten we de volgende opname. Die moet het ook gewoon goed doen. Ik wil het valideren.
+[2026-03-18 20:51:48] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.47s] Inge staat achter me en ze doet een klein beetje eng af en toe. Ik weet ook eigenlijk niet waarom.
+[2026-03-18 20:52:05] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.68s] Belastingen worden minder... Wat doet ze met Lianne? Inge's belasting wordt minder... Ja. Het wordt lager omdat Lianne is uitgeschreven. Ik denk het, ja. Dat is even prettig. Minder betalen omdat Lianne vertrekt.
+[2026-03-18 20:52:23] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.03s] vermindering door een baardvermindering wijzigt het
+[2026-03-18 20:52:48] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.77s] Laat mij dan even praten. U staat, zit u nu? Door een waardevermindering, wijziging van uw WOZ-object of wijziging in uw persoonlijke situatie, bijvoorbeeld een verhuizing, vertrek, overlijden of wijziging van de gezinssamenstelling, zijn onderstaande belastingen verminderd.
+[2026-03-18 20:53:32] [deepdml/faster-whisper-large-v3-turbo-ct2 | 0.81s] Wij vinden 308 euro.
+[2026-03-18 20:53:42] [deepdml/faster-whisper-large-v3-turbo-ct2 | 0.88s] 1308 euro.
+[2026-03-18 20:54:01] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.03s] 1308 euro. Dat is het wat het kost. Een avondje met Inge.
+[2026-03-18 20:54:54] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.23s] Pata Jacka, iets te weinig money in mijn zakken.
+[2026-03-18 20:58:33] [Systran/faster-distil-whisper-large-v3 | 1.06s] Hello, is it an incasso?

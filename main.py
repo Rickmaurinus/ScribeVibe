@@ -22,6 +22,7 @@ from language_overlay import LanguageOverlay
 from recording_indicator import RecordingIndicator
 from transcribing_indicator import TranscribingIndicator
 from tray_app import TrayApp
+import history_ui
 
 
 def _setup_logging() -> None:
@@ -69,6 +70,8 @@ if __name__ == "__main__":
     # PySide6 QApplication must live on the main thread
     from PySide6.QtWidgets import QApplication
     app = QApplication(sys.argv)
+
+    history_ui.init()  # must be called after QApplication exists
 
     cfg = config.load()
     engine = WhisperEngine()

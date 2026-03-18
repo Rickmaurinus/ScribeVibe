@@ -8,8 +8,6 @@ DEFAULTS = {
     "model_size_en": "small.en",
     "model_size_nl": "small",
     "beam_size": 2,
-    "hotkey_english": "f13",
-    "hotkey_dutch": "f14",
     "sound_start": "assets/start.wav",
     "sound_stop": "assets/stop.wav",
     "sound_done": "assets/done.wav",

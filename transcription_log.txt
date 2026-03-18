@@ -2,3 +2,9 @@
 [2026-03-16 13:38:56] [Systran/faster-distil-whisper-large-v3 | 1.39s] Here's our second recording. Please transcribe it.
 [2026-03-16 13:39:12] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.18s] We gaan onze tweede opname in het Nederlands doen. Die zou ook moeten werken met dezelfde opzet.
 [2026-03-16 13:39:26] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.52s] En zo kun je het dus blijven gebruiken, zelfs zonder internet, want ik heb geen internet.
+[2026-03-18 18:11:19] [Systran/faster-distil-whisper-large-v3 | 0.86s] Let's test it!
+[2026-03-18 18:11:23] [Systran/faster-distil-whisper-large-v3 | 0.67s] Yes, let's test.
+[2026-03-18 18:13:09] [Systran/faster-distil-whisper-large-v3 | 0.91s] Deient is in taste.
+[2026-03-18 18:14:08] [Systran/faster-distil-whisper-large-v3 | 0.99s] Test, test, test.
+[2026-03-18 19:15:25] [Systran/faster-distil-whisper-large-v3 | 0.68s] Yeah, I can well forester that.
+[2026-03-18 19:16:50] [Systran/faster-distil-whisper-large-v3 | 0.91s] Yeah, that is also. Yeah.

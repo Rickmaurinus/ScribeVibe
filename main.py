@@ -96,7 +96,7 @@ if __name__ == "__main__":
         daemon=True,
     ).start()
 
-    print(f"\nScribeVibe ready. F13=English  F14=Dutch  Insert=Record  Pause=Switch language  Ctrl+C to quit.\n")
+    print(f"\nScribeVibe ready. Insert=Record  Shift+Insert=Switch language  Escape=Abort  Ctrl+C to quit.\n")
 
     # Run the Qt event loop on the main thread (required by PySide6)
     sys.exit(app.exec())

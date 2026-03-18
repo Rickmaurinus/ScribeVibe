@@ -2,8 +2,8 @@
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, Signal, QObject, Slot
-from PySide6.QtGui import QColor, QLinearGradient, QBrush
-from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtGui import QColor, QFont, QLinearGradient, QBrush
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 
 pg.setConfigOptions(antialias=True)
 
@@ -11,7 +11,7 @@ pg.setConfigOptions(antialias=True)
 _BUFFER_LEN = 4000        # samples in the rolling buffer (~0.25s at 16 kHz)
 _UPDATE_MS = 30           # refresh interval (~33 fps)
 _WIN_W = 420              # window width  (logical px)
-_WIN_H = 120              # window height (logical px)
+_WIN_H = 132              # window height (logical px)
 _MARGIN_BOTTOM = 40       # px from bottom of screen
 _LINE_WIDTH = 1.5
 _LINE_COLOR = "#00e5ff"   # bright cyan
@@ -25,6 +25,7 @@ class _AudioBridge(QObject):
     chunk_ready = Signal(np.ndarray)
     show_signal = Signal()
     hide_signal = Signal()
+    lang_signal = Signal(str)
 
 
 class WaveformWidget(QWidget):
@@ -46,7 +47,20 @@ class WaveformWidget(QWidget):
 
         # ── layout ───────────────────────────────────────────────────
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(8, 6, 8, 8)
+        layout.setSpacing(2)
+
+        # Language badge (EN / NL) at the top
+        self._lang_label = QLabel("EN")
+        self._lang_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        _font = QFont()
+        _font.setBold(True)
+        _font.setPointSize(11)
+        _font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 2)
+        self._lang_label.setFont(_font)
+        self._lang_label.setStyleSheet(f"color: {_LINE_COLOR}; background: transparent; padding-right: 4px;")
+        self._lang_label.setFixedHeight(18)
+        layout.addWidget(self._lang_label)
 
         self._pw = pg.PlotWidget()
         self._pw.setBackground(None)  # transparent
@@ -96,6 +110,7 @@ class WaveformWidget(QWidget):
         self._bridge.chunk_ready.connect(self._on_chunk)
         self._bridge.show_signal.connect(self._do_show)
         self._bridge.hide_signal.connect(self._do_hide)
+        self._bridge.lang_signal.connect(self._do_set_language)
 
         # ── refresh timer ────────────────────────────────────────────
         self._timer = pg.QtCore.QTimer()
@@ -109,6 +124,10 @@ class WaveformWidget(QWidget):
     def feed_audio(self, chunk: np.ndarray) -> None:
         """Thread-safe: accepts a chunk from the audio callback."""
         self._bridge.chunk_ready.emit(chunk)
+
+    def set_language(self, lang: str) -> None:
+        """Thread-safe: update the language badge before showing."""
+        self._bridge.lang_signal.emit(lang)
 
     def show(self) -> None:
         """Thread-safe show."""
@@ -131,6 +150,10 @@ class WaveformWidget(QWidget):
     def _do_hide(self) -> None:
         self._timer.stop()
         super().hide()
+
+    @Slot(str)
+    def _do_set_language(self, lang: str) -> None:
+        self._lang_label.setText("EN" if lang == "en" else "NL")
 
     # ── internal ─────────────────────────────────────────────────────
 
@@ -177,8 +200,9 @@ class RecordingIndicator:
         """No-op — widget creation is deferred to create_widget()."""
         pass
 
-    def show(self) -> None:
+    def show(self, language: str = "en") -> None:
         if self._widget:
+            self._widget.set_language(language)
             self._widget.show()
 
     def hide(self) -> None:

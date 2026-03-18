@@ -1,9 +1,10 @@
 """
 Global hotkey listener and audio feedback for ScribeVibe.
 
-Hotkeys (configurable in config.py / settings.json):
-  F13 — toggle recording in English
-  F14 — toggle recording in Dutch
+Hotkeys:
+  Insert         — toggle recording
+  Shift+Insert   — switch language (English ↔ Dutch)
+  Escape         — abort recording and discard audio
 
 "Wait & Blitz": record the full utterance, transcribe on stop, type the result.
 """
@@ -18,7 +19,6 @@ import winsound
 
 import numpy as np
 import sounddevice as sd
-from pynput import keyboard
 
 import config
 import output_handler
@@ -53,10 +53,6 @@ def _play(path: str) -> None:
     winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
 
-def _key_from_name(name: str) -> keyboard.Key:
-    return getattr(keyboard.Key, name.lower())
-
-
 # ── hotkey listener ─────────────────────────────────────────────────
 
 class HotkeyListener:
@@ -77,40 +73,19 @@ class HotkeyListener:
         self._active_language = "en"
         self._active_model_size = "small.en"
         self._last_toggle = 0.0  # monotonic timestamp — debounce guard
-        self._listener = None
         self._queue: queue.Queue = queue.Queue()
         self._worker = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
 
-        # Cache hotkey objects — avoids config.load() + getattr on every keypress
+        # Pre-open mic stream so first Insert press is instant
         cfg = config.load()
-        self._key_en = _key_from_name(cfg["hotkey_english"])
-        self._key_nl = _key_from_name(cfg["hotkey_dutch"])
-
-        # Pre-open mic stream so first F13 press is instant
         device_id = cfg.get("device_id")
         try:
             self._recorder.open_stream(device_id)
         except RuntimeError as e:
             print(f"WARNING: Could not pre-open mic: {e}")
 
-    def _handle_press(self, key):
-        # Fast reject for non-hotkey presses — no disk I/O
-        if key not in (self._key_en, self._key_nl):
-            return
-
-        # Debounce: ignore presses within 250ms of last toggle
-        now = time.monotonic()
-        if now - self._last_toggle < 0.25:
-            return
-        self._last_toggle = now
-
-        if not self.is_recording:
-            self._start_recording(key)
-        else:
-            self._stop_recording()
-
-    # ── Insert / Pause — Win32 low-level hook with suppression ─────────
+    # ── Insert / Shift+Insert — Win32 low-level hook with suppression ──
 
     def _insert_toggle(self) -> None:
         """Called from the Win32 hook when Insert is pressed."""
@@ -120,8 +95,7 @@ class HotkeyListener:
         self._last_toggle = now
 
         if not self.is_recording:
-            proxy_key = self._key_en if self._active_language == "en" else self._key_nl
-            self._start_recording(proxy_key)
+            self._start_recording()
         else:
             self._stop_recording()
 
@@ -162,6 +136,7 @@ class HotkeyListener:
         """Low-level keyboard hook that intercepts Insert (record) and
         Shift+Insert (switch language), suppressing their default behaviour."""
         VK_INSERT = 0x2D
+        VK_ESCAPE = 0x1B
         VK_SHIFT = 0xA0   # VK_LSHIFT — used by GetAsyncKeyState
 
         # Completely separate user32 handle — avoids type conflicts with pynput
@@ -218,6 +193,12 @@ class HotkeyListener:
                             # Insert alone → toggle recording
                             listener_self._insert_toggle()
                         return 1  # suppress Insert in all cases
+
+                    if vk == VK_ESCAPE:
+                        if is_down and listener_self.is_recording:
+                            # Escape while recording → abort and discard
+                            listener_self._abort_recording()
+                            return 1  # suppress only when recording
             except Exception:
                 pass
             return _u32.CallNextHookEx(None, nCode, wParam, lParam)
@@ -231,7 +212,7 @@ class HotkeyListener:
                 err = ctypes.get_last_error()
                 print(f"WARNING: Key hook failed (error {err})")
                 return
-            print("Key hooks installed — Insert (record) + Shift+Insert (switch language).")
+            print("Key hooks installed — Insert (record) + Shift+Insert (switch language) + Escape (abort).")
             msg = (ctypes.c_byte * 48)()  # MSG struct buffer
             while _u32.GetMessageW(msg, None, 0, 0) > 0:
                 pass
@@ -239,9 +220,8 @@ class HotkeyListener:
 
         threading.Thread(target=_run_hook, daemon=True).start()
 
-    def _start_recording(self, key):
+    def _start_recording(self):
         cfg = config.load()
-        self._active_language = "en" if key == self._key_en else "nl"
         device_id = cfg.get("device_id")
 
         model_key = "model_size_en" if self._active_language == "en" else "model_size_nl"
@@ -263,7 +243,7 @@ class HotkeyListener:
         if self._indicator:
             # Feed live audio chunks to the waveform visualizer
             self._recorder._live_callback = self._indicator.feed_audio
-            self._indicator.show()
+            self._indicator.show(self._active_language)
 
         # Pre-fetch model during recording if a swap is needed
         if self._engine.current_model != self._active_model_size:
@@ -299,6 +279,16 @@ class HotkeyListener:
             "lang": self._active_language,
             "model_size": self._active_model_size,
         })
+
+    def _abort_recording(self) -> None:
+        """Stop recording and discard audio — no transcription queued."""
+        self.is_recording = False
+        self._recorder._live_callback = None
+        if self._indicator:
+            self._indicator.hide()
+        self._recorder.stop_recording_raw()  # discard captured audio
+        _play(_SND_STOP)
+        print("Recording aborted.")
 
     # ── background worker ─────────────────────────────────────────────
 
@@ -338,16 +328,10 @@ class HotkeyListener:
         _play(_SND_DONE)
 
     def start(self) -> None:
-        self._listener = keyboard.Listener(
-            on_press=self._handle_press,
-        )
-        self._listener.start()
         self._install_key_hooks()
 
     def stop(self) -> None:
-        if self._listener:
-            self._listener.stop()
+        pass  # Win32 hook runs on a daemon thread and cleans up on exit
 
     def join(self) -> None:
-        if self._listener:
-            self._listener.join()
+        pass

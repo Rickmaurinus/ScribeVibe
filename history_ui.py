@@ -14,27 +14,35 @@ _ENTRY_RE = re.compile(
 )
 
 # Claude.ai light-mode palette
-_BG     = "#f5f3ef"
-_CARD   = "#ffffff"
-_BORDER = "#e8e4de"
-_SHADOW = "#cac5bd"
-_FG     = "#1a1917"
-_DIM    = "#9e9894"
-_ACCENT = "#c96a3c"
+_BG        = "#f5f3ef"
+_CARD      = "#ffffff"
+_BORDER    = "#e8e4de"
+_SHADOW    = "#cac5bd"
+_FG        = "#1a1917"
+_DIM       = "#9e9894"
+_ACCENT    = "#c96a3c"
+_HIGHLIGHT = "#fde68a"
+_DANGER    = "#d44"
 
 _RADIUS = 5
 _PAD    = 14
+
+_PLACEHOLDER = "Search transcriptions\u2026"
 
 _open = False
 _lock = threading.Lock()
 
 # Handles kept while the window is open (for live updates)
-_root_ref        = None
-_inner_ref       = None
-_first_entry_ref = [None]   # topmost entry widget
-_empty_lbl_ref   = [None]   # "no entries yet" label
-_scroll_cv_ref   = [None]   # scrollable canvas
+_root_ref         = None
+_inner_ref        = None
+_first_entry_ref  = [None]   # topmost entry widget
+_empty_lbl_ref    = [None]   # "no entries yet" label
+_scroll_cv_ref    = [None]   # scrollable canvas
+_search_entry_ref = [None]   # tk.Entry widget
+_count_lbl_ref    = [None]   # result count label
+_clear_btn_ref    = [None]   # clear search button
 _all_entries: list[tuple[str, str, str]] = []   # full data, newest first
+_hovered_text     = [None]   # text of currently hovered card (for Ctrl+C)
 
 
 # ── geometry helpers ──────────────────────────────────────────────────
@@ -81,7 +89,7 @@ def _parse_log() -> list[tuple[str, str, str]]:
 # ── entry card ────────────────────────────────────────────────────────
 
 def _make_entry(parent: tk.Frame, ts: str, meta: str, text: str,
-                before=None) -> tk.Frame:
+                before=None, query: str = "") -> tk.Frame:
     """Build a rounded card and return its outer frame."""
     outer = tk.Frame(parent, bg=_BG)
     pack_kw = dict(fill="x", pady=(0, 10))
@@ -129,6 +137,7 @@ def _make_entry(parent: tk.Frame, ts: str, meta: str, text: str,
     def _enter(e=None):
         if not _hovered[0]:
             _hovered[0] = True
+            _hovered_text[0] = text
             cv.itemconfig(shadow_id, state="normal")
 
     def _leave(e=None):
@@ -140,15 +149,29 @@ def _make_entry(parent: tk.Frame, ts: str, meta: str, text: str,
         rw, rh = cv.winfo_width(), cv.winfo_height()
         if not (rx <= x <= rx + rw and ry <= y <= ry + rh):
             _hovered[0] = False
+            if _hovered_text[0] == text:
+                _hovered_text[0] = None
             cv.itemconfig(shadow_id, state="hidden")
 
     # ── header row ──
     hdr = tk.Frame(content, bg=_CARD)
     hdr.pack(fill="x")
 
-    # Copy icon — packed right first so it anchors to the right edge
+    # Delete button — packed right first (furthest right)
+    del_btn = tk.Button(
+        hdr, text="\u2715",
+        bg=_CARD, fg=_DIM,
+        activebackground=_CARD, activeforeground=_DANGER,
+        relief="flat", padx=2, pady=0,
+        font=("Segoe UI", 9), cursor="hand2",
+        highlightthickness=0, borderwidth=0,
+    )
+    del_btn.config(command=lambda: _delete_entry(outer, ts, meta, text))
+    del_btn.pack(side="right")
+
+    # Copy icon
     btn = tk.Button(
-        hdr, text="⧉",
+        hdr, text="\u29c9",
         bg=_CARD, fg=_DIM,
         activebackground=_CARD, activeforeground=_ACCENT,
         relief="flat", padx=2, pady=0,
@@ -156,35 +179,82 @@ def _make_entry(parent: tk.Frame, ts: str, meta: str, text: str,
         highlightthickness=0, borderwidth=0,
     )
     btn.config(command=lambda: _copy(btn, text, cv))
-    btn.pack(side="right")
+    btn.pack(side="right", padx=(0, 4))
 
     tk.Label(hdr, text=ts, bg=_CARD, fg=_DIM,
              font=("Segoe UI", 8)).pack(side="left")
     if meta:
-        tk.Label(hdr, text=f"· {meta}", bg=_CARD, fg=_ACCENT,
+        tk.Label(hdr, text=f"\u00b7 {meta}", bg=_CARD, fg=_ACCENT,
                  font=("Segoe UI", 8)).pack(side="left", padx=(8, 0))
 
     # Divider
     tk.Frame(content, bg=_BORDER, height=1).pack(fill="x", pady=(6, 0))
 
-    # Transcription text
-    text_lbl = tk.Label(
-        content, text=text,
+    # Transcription text — use Text widget for match highlighting
+    text_w = tk.Text(
+        content, wrap="word",
         bg=_CARD, fg=_FG,
         font=("Segoe UI", 10),
-        wraplength=600, justify="left", anchor="w",
+        relief="flat", bd=0, highlightthickness=0,
+        cursor="arrow", padx=0, pady=0,
+        height=1, width=1,
     )
-    text_lbl.pack(fill="x", pady=(8, 4))
+    text_w.tag_configure("match", background=_HIGHLIGHT, foreground=_FG)
+    text_w.insert("1.0", text)
 
-    _last_wrap = [0]
+    # Apply highlighting if there's a search query
+    if query:
+        start_idx = "1.0"
+        while True:
+            pos = text_w.search(query, start_idx, stopindex="end", nocase=True)
+            if not pos:
+                break
+            end_pos = f"{pos}+{len(query)}c"
+            text_w.tag_add("match", pos, end_pos)
+            start_idx = end_pos
 
-    def _resize_wrap(event, lbl=text_lbl):
-        new_wrap = max(100, event.width - 30)
-        if new_wrap != _last_wrap[0]:
-            _last_wrap[0] = new_wrap
-            lbl.config(wraplength=new_wrap)
+    text_w.config(state="disabled")
+    text_w.configure(cursor="ibeam")
+    text_w.pack(fill="x", pady=(8, 4))
 
-    content.bind("<Configure>", _resize_wrap, add="+")
+    # Auto-size the Text widget height based on content
+    def _autosize(event=None):
+        text_w.update_idletasks()
+        # Count display lines after wrapping
+        line_count = int(text_w.index("end-1c").split(".")[0])
+        if line_count != int(text_w.cget("height")):
+            text_w.config(height=line_count)
+
+    text_w.bind("<Configure>", _autosize)
+
+    # Block editing keys but allow selection and Ctrl+C
+    text_w.bind("<Key>", lambda e: "break" if e.state & 4 == 0 else None)
+
+    # Right-click context menu with Copy
+    def _show_context_menu(e):
+        menu = tk.Menu(text_w, tearoff=0,
+                       bg=_CARD, fg=_FG, activebackground=_BORDER,
+                       activeforeground=_FG, font=("Segoe UI", 9))
+        try:
+            sel = text_w.get("sel.first", "sel.last")
+        except tk.TclError:
+            sel = ""
+        if sel:
+            menu.add_command(label="Copy selection",
+                             command=lambda: _ctx_copy(text_w, sel))
+        menu.add_command(label="Copy all",
+                         command=lambda: _ctx_copy(text_w, text))
+        menu.tk_popup(e.x_root, e.y_root)
+
+    text_w.bind("<Button-3>", _show_context_menu)
+
+    # Click on card area removes focus from search bar
+    def _on_card_click(e):
+        root = cv.winfo_toplevel()
+        root.focus_set()
+
+    for w in (cv, content, hdr):
+        w.bind("<Button-1>", _on_card_click)
 
     # Bind hover to every widget inside the card (done last, after all children exist)
     _bind_hover(cv, _enter, _leave)
@@ -198,6 +268,37 @@ def _copy(btn: tk.Button, text: str, cv: tk.Canvas) -> None:
     root.clipboard_append(text)
     btn.config(fg=_ACCENT)
     btn.after(1500, lambda: btn.config(fg=_DIM))
+
+
+def _ctx_copy(widget: tk.Widget, text: str) -> None:
+    """Copy text to clipboard from a context menu action."""
+    root = widget.winfo_toplevel()
+    root.clipboard_clear()
+    root.clipboard_append(text)
+
+
+def _delete_entry(card_frame: tk.Frame, ts: str, meta: str, text: str) -> None:
+    """Remove one entry from memory, disk, and UI."""
+    try:
+        _all_entries.remove((ts, meta, text))
+    except ValueError:
+        pass
+
+    output_handler.delete_log_entry(ts, meta, text)
+
+    card_frame.destroy()
+
+    inner = _inner_ref
+    if inner is not None:
+        children = inner.winfo_children()
+        _first_entry_ref[0] = children[0] if children else None
+        if not children:
+            lbl = tk.Label(inner, text="No transcriptions yet.",
+                           bg=_BG, fg=_DIM, font=("Segoe UI", 11), pady=40)
+            lbl.pack()
+            _empty_lbl_ref[0] = lbl
+
+    _update_count()
 
 
 # ── live update ───────────────────────────────────────────────────────
@@ -220,6 +321,7 @@ def _prepend(ts: str, meta: str, text: str) -> None:
     # If a search is active and the new entry doesn't match, skip the UI
     query = _get_search_query()
     if query and not _matches(query, ts, meta, text):
+        _update_count()
         return
 
     if _empty_lbl_ref[0] is not None:
@@ -227,14 +329,12 @@ def _prepend(ts: str, meta: str, text: str) -> None:
         _empty_lbl_ref[0] = None
 
     first = _first_entry_ref[0]
-    new_entry = _make_entry(_inner_ref, ts, meta, text, before=first)
+    new_entry = _make_entry(_inner_ref, ts, meta, text, before=first, query=query)
     _first_entry_ref[0] = new_entry
+    _update_count()
 
 
 # ── search / filter ───────────────────────────────────────────────────
-
-_search_entry_ref = [None]  # tk.Entry widget
-
 
 def _get_search_query() -> str:
     """Return the current search string, or '' if empty/placeholder."""
@@ -247,11 +347,22 @@ def _get_search_query() -> str:
     return val.lower()
 
 
-_PLACEHOLDER = "Search transcriptions\u2026"
-
-
 def _matches(query: str, ts: str, meta: str, text: str) -> bool:
     return query in text.lower() or query in ts.lower() or query in meta.lower()
+
+
+def _update_count() -> None:
+    """Update the result count label."""
+    lbl = _count_lbl_ref[0]
+    if lbl is None:
+        return
+    total = len(_all_entries)
+    query = _get_search_query()
+    if query:
+        filtered = sum(1 for e in _all_entries if _matches(query, *e))
+        lbl.config(text=f"{filtered} of {total}")
+    else:
+        lbl.config(text=str(total) if total else "")
 
 
 def _apply_filter() -> None:
@@ -263,6 +374,11 @@ def _apply_filter() -> None:
 
     scroll_cv = _scroll_cv_ref[0]
 
+    # Cancel any in-progress smooth scroll
+    if _scroll_anim["job"] is not None:
+        root.after_cancel(_scroll_anim["job"])
+        _scroll_anim["job"] = None
+
     for child in inner.winfo_children():
         child.destroy()
     _first_entry_ref[0] = None
@@ -271,6 +387,8 @@ def _apply_filter() -> None:
     # Reset scroll to top
     if scroll_cv is not None:
         scroll_cv.yview_moveto(0)
+        _scroll_anim["target"] = 0.0
+        _scroll_anim["current"] = 0.0
 
     query = _get_search_query()
 
@@ -279,6 +397,8 @@ def _apply_filter() -> None:
                     if _matches(query, ts, m, t)]
     else:
         matching = list(_all_entries)
+
+    _update_count()
 
     if not matching:
         msg = "No matching transcriptions." if query else "No transcriptions yet."
@@ -295,7 +415,7 @@ def _apply_filter() -> None:
         if not batch:
             return
         for ts, meta, text in batch:
-            w = _make_entry(inner, ts, meta, text)
+            w = _make_entry(inner, ts, meta, text, query=query)
             if _first_entry_ref[0] is None:
                 _first_entry_ref[0] = w
         if idx + _BATCH < len(matching):
@@ -304,13 +424,44 @@ def _apply_filter() -> None:
     root.after(1, _load_batch)
 
 
+# ── smooth scroll ─────────────────────────────────────────────────────
+
+_scroll_anim = {"target": 0.0, "current": 0.0, "job": None}
+
+
+def _animate_scroll():
+    """Lerp toward the scroll target for smooth movement."""
+    scroll_cv = _scroll_cv_ref[0]
+    if scroll_cv is None:
+        _scroll_anim["job"] = None
+        return
+
+    target = _scroll_anim["target"]
+    current = _scroll_anim["current"]
+
+    diff = target - current
+    if abs(diff) < 0.0005:
+        scroll_cv.yview_moveto(target)
+        _scroll_anim["current"] = target
+        _scroll_anim["job"] = None
+        return
+
+    # Move 20% of remaining distance each frame (ease-out)
+    new_pos = current + diff * 0.2
+    scroll_cv.yview_moveto(new_pos)
+    _scroll_anim["current"] = new_pos
+
+    # ~16ms per frame = ~60fps
+    _scroll_anim["job"] = scroll_cv.after(16, _animate_scroll)
+
+
 # ── window ────────────────────────────────────────────────────────────
 
 def _run_window() -> None:
     global _open, _root_ref, _inner_ref
 
     root = tk.Tk()
-    root.title("ScribeVibe — History")
+    root.title("ScribeVibe \u2014 History")
     root.geometry("760x580")
     root.minsize(520, 320)
     root.configure(bg=_BG)
@@ -328,9 +479,7 @@ def _run_window() -> None:
         open(output_handler.LOG_FILE, "w").close()
         _all_entries.clear()
         # Reset search box
-        search_entry.delete(0, "end")
-        search_entry.config(fg=_DIM)
-        search_entry.insert(0, _PLACEHOLDER)
+        _clear_search()
         # Remove all cards from the UI
         for child in inner.winfo_children():
             child.destroy()
@@ -339,6 +488,7 @@ def _run_window() -> None:
                        bg=_BG, fg=_DIM, font=("Segoe UI", 11), pady=40)
         lbl.pack()
         _empty_lbl_ref[0] = lbl
+        _update_count()
 
     tk.Button(hdr_frame, text="Clear History",
               bg=_CARD, fg=_ACCENT,
@@ -365,8 +515,38 @@ def _run_window() -> None:
         relief="flat", highlightthickness=0, borderwidth=0,
     )
     search_entry.insert(0, _PLACEHOLDER)
-    search_entry.pack(fill="x", ipady=6, padx=(8, 4))
+    search_entry.pack(side="left", fill="x", expand=True, ipady=6, padx=(8, 4))
     _search_entry_ref[0] = search_entry
+
+    # Clear search button (x) — hidden initially
+    clear_btn = tk.Button(
+        search_border, text="\u00d7",
+        bg=_CARD, fg=_DIM,
+        activebackground=_CARD, activeforeground=_ACCENT,
+        relief="flat", padx=6, pady=0,
+        font=("Segoe UI", 12), cursor="hand2",
+        highlightthickness=0, borderwidth=0,
+    )
+    _clear_btn_ref[0] = clear_btn
+    # Don't pack yet — shown when there's search text
+
+    # Result count label
+    count_lbl = tk.Label(
+        search_border, text="", bg=_CARD, fg=_DIM,
+        font=("Segoe UI", 8), padx=6,
+    )
+    count_lbl.pack(side="right")
+    _count_lbl_ref[0] = count_lbl
+
+    def _clear_search():
+        search_entry.delete(0, "end")
+        search_entry.config(fg=_DIM)
+        search_entry.insert(0, _PLACEHOLDER)
+        clear_btn.pack_forget()
+        root.focus_set()
+        _apply_filter()
+
+    clear_btn.config(command=_clear_search)
 
     def _on_focus_in(e):
         if search_entry.get() == _PLACEHOLDER:
@@ -378,6 +558,7 @@ def _run_window() -> None:
             search_entry.delete(0, "end")
             search_entry.config(fg=_DIM)
             search_entry.insert(0, _PLACEHOLDER)
+            clear_btn.pack_forget()
 
     search_entry.bind("<FocusIn>", _on_focus_in)
     search_entry.bind("<FocusOut>", _on_focus_out)
@@ -386,11 +567,48 @@ def _run_window() -> None:
     _pending_filter = [None]
 
     def _on_key(event=None):
+        # Show/hide clear button
+        val = search_entry.get().strip()
+        if val and val != _PLACEHOLDER:
+            clear_btn.pack(side="right", padx=(0, 2))
+        else:
+            clear_btn.pack_forget()
         if _pending_filter[0] is not None:
             root.after_cancel(_pending_filter[0])
         _pending_filter[0] = root.after(200, _apply_filter)
 
     search_entry.bind("<KeyRelease>", _on_key)
+
+    # Escape in search clears it
+    def _on_escape(e):
+        _clear_search()
+        return "break"
+
+    search_entry.bind("<Escape>", _on_escape)
+
+    # Ctrl+F focuses the search bar
+    def _ctrl_f(e):
+        search_entry.focus_set()
+        _on_focus_in(None)
+        # Select all existing text for easy replacement
+        val = search_entry.get()
+        if val and val != _PLACEHOLDER:
+            search_entry.select_range(0, "end")
+        return "break"
+
+    root.bind("<Control-f>", _ctrl_f)
+
+    # Ctrl+C copies hovered card text
+    def _ctrl_c(e):
+        # Don't intercept if focus is on the search entry
+        if root.focus_get() == search_entry:
+            return
+        if _hovered_text[0] is not None:
+            root.clipboard_clear()
+            root.clipboard_append(_hovered_text[0])
+            return "break"
+
+    root.bind("<Control-c>", _ctrl_c)
 
     # Scrollable area
     outer = tk.Frame(root, bg=_BG)
@@ -423,16 +641,36 @@ def _run_window() -> None:
     scroll_cv.bind("<Configure>",
                    lambda e: scroll_cv.itemconfig(win_id, width=e.width))
 
+    # Smooth scroll via mousewheel
     def _on_wheel(event):
-        # Only scroll when content is taller than the visible area
         bbox = scroll_cv.bbox("all")
         if bbox is None:
             return
         content_height = bbox[3] - bbox[1]
-        if content_height <= scroll_cv.winfo_height():
+        visible_height = scroll_cv.winfo_height()
+        if content_height <= visible_height:
             return
-        scroll_cv.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        # Each wheel tick scrolls ~60px worth of the total content
+        delta = -event.delta / 120  # positive = scroll down
+        scroll_fraction = (60 * delta) / content_height
+
+        # Initialize from current position if no animation running
+        if _scroll_anim["job"] is None:
+            current_pos = scroll_cv.yview()[0]
+            _scroll_anim["current"] = current_pos
+            _scroll_anim["target"] = current_pos
+
+        _scroll_anim["target"] += scroll_fraction
+        _scroll_anim["target"] = max(0.0, min(1.0, _scroll_anim["target"]))
+
+        if _scroll_anim["job"] is None:
+            _animate_scroll()
+
     scroll_cv.bind_all("<MouseWheel>", _on_wheel)
+
+    # Click on empty scroll area removes focus from search bar
+    scroll_cv.bind("<Button-1>", lambda e: root.focus_set())
 
     _inner_ref = inner
 
@@ -464,6 +702,8 @@ def _run_window() -> None:
         _empty_lbl_ref[0] = lbl
         _first_entry_ref[0] = None
 
+    _update_count()
+
     # Register live-update hook
     output_handler.set_log_hook(_on_new_transcription)
 
@@ -471,12 +711,20 @@ def _run_window() -> None:
         global _open, _root_ref, _inner_ref
         output_handler.set_log_hook(None)
         scroll_cv.unbind_all("<MouseWheel>")
+        root.unbind("<Control-f>")
+        root.unbind("<Control-c>")
+        if _scroll_anim["job"] is not None:
+            root.after_cancel(_scroll_anim["job"])
+            _scroll_anim["job"] = None
         _root_ref = None
         _inner_ref = None
         _first_entry_ref[0] = None
         _empty_lbl_ref[0] = None
         _search_entry_ref[0] = None
         _scroll_cv_ref[0] = None
+        _count_lbl_ref[0] = None
+        _clear_btn_ref[0] = None
+        _hovered_text[0] = None
         _all_entries.clear()
         _open = False
         root.withdraw()

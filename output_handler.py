@@ -81,6 +81,7 @@ def copy_to_hidden_clipboard(text: str) -> None:
 
 _MAX_LOG_ENTRIES = 500
 _log_count = 0
+_file_lock = threading.Lock()
 
 
 def log_transcription(text: str, model_name: str = "", transcription_time: float = 0.0) -> None:
@@ -88,16 +89,38 @@ def log_transcription(text: str, model_name: str = "", transcription_time: float
     global _log_count
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     meta = f"{model_name} | {transcription_time:.2f}s"
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(f"[{timestamp}] [{meta}] {text}\n")
+    with _file_lock:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] [{meta}] {text}\n")
 
-    _log_count += 1
-    if _log_count >= 50:
-        _log_count = 0
-        _trim_log()
+        _log_count += 1
+        if _log_count >= 50:
+            _log_count = 0
+            _trim_log()
 
     if _log_hook:
         _log_hook(timestamp, meta, text)
+
+
+def delete_log_entry(ts: str, meta: str, text: str) -> None:
+    """Remove a single entry from the log file."""
+    if meta:
+        target = f"[{ts}] [{meta}] {text}"
+    else:
+        target = f"[{ts}] {text}"
+    with _file_lock:
+        try:
+            with open(LOG_FILE, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            found = False
+            with open(LOG_FILE, "w", encoding="utf-8") as f:
+                for line in lines:
+                    if not found and line.strip() == target:
+                        found = True
+                        continue
+                    f.write(line)
+        except FileNotFoundError:
+            pass
 
 
 def _trim_log() -> None:

@@ -2,7 +2,7 @@
 import json
 import re
 
-from PySide6.QtCore import QObject, Signal, Slot, QUrl
+from PySide6.QtCore import QObject, Signal, Slot, QUrl, QTimer
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWidgets import QMainWindow, QApplication
@@ -103,9 +103,9 @@ class _HistoryWindow(QMainWindow):
         self._view.page().runJavaScript(f"window.addNewEntry({entry_json})")
 
     def closeEvent(self, event):
+        event.ignore()
         output_handler.set_log_hook(None)
-        _manager._window = None
-        super().closeEvent(event)
+        self.hide()
 
 
 # ── Manager (thread-safe show/hide) ──────────────────────────────────
@@ -120,12 +120,27 @@ class _HistoryManager(QObject):
 
     @Slot()
     def _on_show(self):
-        if self._window is not None and self._window.isVisible():
+        if self._window is not None:
+            if self._window.isVisible():
+                self._window.raise_()
+                self._window.activateWindow()
+                return
+            # Re-hook live updates and refresh entries for hidden window
+            output_handler.set_log_hook(self._window._bridge.push_entry)
+            self._window._on_load_finished()
+            self._window.show()
             self._window.raise_()
             self._window.activateWindow()
             return
         self._window = _HistoryWindow()
         self._window.show()
+
+    def _ensure_window(self):
+        """Pre-create the window hidden so Chromium initializes in the background."""
+        if self._window is None:
+            self._window = _HistoryWindow()
+            self._window.hide()
+            output_handler.set_log_hook(None)
 
     def request_show(self):
         """Can be called from any thread."""
@@ -139,6 +154,7 @@ def init():
     """Initialize the history manager. Must be called from the main (Qt) thread."""
     global _manager
     _manager = _HistoryManager()
+    QTimer.singleShot(10_000, _manager._ensure_window)
 
 
 def show_history() -> None:

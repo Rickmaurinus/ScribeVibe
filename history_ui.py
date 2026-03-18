@@ -26,6 +26,8 @@ _DANGER    = "#d44"
 
 _RADIUS = 5
 _PAD    = 14
+_FADE_STEPS = 8
+_FADE_MS    = 20  # ms between steps (~160ms total)
 
 _PLACEHOLDER = "Search transcriptions\u2026"
 
@@ -59,6 +61,16 @@ def _rrect(x1, y1, x2, y2, r):
     ]
 
 
+def _lerp_color(c1: str, c2: str, t: float) -> str:
+    """Interpolate between two hex colors. t=0 gives c1, t=1 gives c2."""
+    r1, g1, b1 = int(c1[1:3], 16), int(c1[3:5], 16), int(c1[5:7], 16)
+    r2, g2, b2 = int(c2[1:3], 16), int(c2[3:5], 16), int(c2[5:7], 16)
+    r = int(r1 + (r2 - r1) * t)
+    g = int(g1 + (g2 - g1) * t)
+    b = int(b1 + (b2 - b1) * t)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
 def _bind_hover(widget, on_enter, on_leave):
     """Recursively bind <Enter>/<Leave> to widget and all descendants."""
     widget.bind("<Enter>", on_enter, add="+")
@@ -89,7 +101,7 @@ def _parse_log() -> list[tuple[str, str, str]]:
 # ── entry card ────────────────────────────────────────────────────────
 
 def _make_entry(parent: tk.Frame, ts: str, meta: str, text: str,
-                before=None, query: str = "") -> tk.Frame:
+                before=None, query: str = "", fade: bool = False) -> tk.Frame:
     """Build a rounded card and return its outer frame."""
     outer = tk.Frame(parent, bg=_BG)
     pack_kw = dict(fill="x", pady=(0, 10))
@@ -259,6 +271,62 @@ def _make_entry(parent: tk.Frame, ts: str, meta: str, text: str,
     # Bind hover to every widget inside the card (done last, after all children exist)
     _bind_hover(cv, _enter, _leave)
 
+    # Fade-in animation — transition colors from background to card colors
+    if fade:
+        # Collect all child widgets that need color transitions
+        _fade_widgets = []
+        for child in content.winfo_children():
+            try:
+                bg = child.cget("bg")
+                if bg == _CARD:
+                    _fade_widgets.append((child, "bg", _CARD))
+                fg = child.cget("fg")
+                if fg in (_FG, _DIM, _ACCENT):
+                    _fade_widgets.append((child, "fg", fg))
+            except tk.TclError:
+                pass
+            # Recurse one level into header frame children
+            for sub in child.winfo_children():
+                try:
+                    bg = sub.cget("bg")
+                    if bg == _CARD:
+                        _fade_widgets.append((sub, "bg", _CARD))
+                    fg = sub.cget("fg")
+                    if fg in (_FG, _DIM, _ACCENT):
+                        _fade_widgets.append((sub, "fg", fg))
+                except tk.TclError:
+                    pass
+
+        # Set initial state — everything blends into background
+        cv.itemconfig(rect_id, fill=_BG, outline=_BG)
+        content.config(bg=_BG)
+        text_w.config(bg=_BG)
+        for widget, prop, _ in _fade_widgets:
+            try:
+                widget.config(**{prop: _BG})
+            except tk.TclError:
+                pass
+
+        def _fade_step(step=0):
+            if step > _FADE_STEPS:
+                return
+            t = step / _FADE_STEPS
+            # Card background and border
+            bg_c = _lerp_color(_BG, _CARD, t)
+            border_c = _lerp_color(_BG, _BORDER, t)
+            try:
+                cv.itemconfig(rect_id, fill=bg_c, outline=border_c)
+                content.config(bg=bg_c)
+                text_w.config(bg=bg_c)
+                for widget, prop, target in _fade_widgets:
+                    c = _lerp_color(_BG, target, t)
+                    widget.config(**{prop: c})
+            except tk.TclError:
+                return
+            cv.after(_FADE_MS, lambda: _fade_step(step + 1))
+
+        cv.after(1, _fade_step)
+
     return outer
 
 
@@ -329,7 +397,8 @@ def _prepend(ts: str, meta: str, text: str) -> None:
         _empty_lbl_ref[0] = None
 
     first = _first_entry_ref[0]
-    new_entry = _make_entry(_inner_ref, ts, meta, text, before=first, query=query)
+    new_entry = _make_entry(_inner_ref, ts, meta, text, before=first, query=query,
+                            fade=True)
     _first_entry_ref[0] = new_entry
     _update_count()
 
@@ -414,8 +483,9 @@ def _apply_filter() -> None:
         batch = matching[idx:idx + _BATCH]
         if not batch:
             return
-        for ts, meta, text in batch:
-            w = _make_entry(inner, ts, meta, text, query=query)
+        for i, (ts, meta, text) in enumerate(batch):
+            w = _make_entry(inner, ts, meta, text, query=query,
+                            fade=True)
             if _first_entry_ref[0] is None:
                 _first_entry_ref[0] = w
         if idx + _BATCH < len(matching):

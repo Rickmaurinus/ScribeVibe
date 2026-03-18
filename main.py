@@ -20,6 +20,7 @@ from transcriber import WhisperEngine
 from interface import HotkeyListener
 from language_overlay import LanguageOverlay
 from recording_indicator import RecordingIndicator
+from transcribing_indicator import TranscribingIndicator
 from tray_app import TrayApp
 
 
@@ -82,11 +83,16 @@ if __name__ == "__main__":
     indicator = RecordingIndicator()
     indicator.create_widget()  # must be called after QApplication exists
 
+    transcribing = TranscribingIndicator()
+    transcribing.create_widget()
+
     lang_overlay = LanguageOverlay()
     lang_overlay.start()
 
     listener = HotkeyListener(engine=engine, indicator=indicator,
-                              language_overlay=lang_overlay)
+                              language_overlay=lang_overlay,
+                              transcribing_indicator=transcribing,
+                              notify_fn=tray.notify)
     listener.start()
 
     # Eager model load + CUDA warm-up in background

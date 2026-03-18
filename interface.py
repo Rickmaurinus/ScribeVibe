@@ -64,10 +64,13 @@ class HotkeyListener:
     """
 
     def __init__(self, engine: WhisperEngine, indicator=None,
-                 language_overlay=None) -> None:
+                 language_overlay=None, transcribing_indicator=None,
+                 notify_fn=None) -> None:
         self._engine = engine
         self._indicator = indicator
         self._language_overlay = language_overlay
+        self._transcribing_indicator = transcribing_indicator
+        self._notify_fn = notify_fn
         self._recorder = AudioRecorder()
         self.is_recording = False
         self._active_language = "en"
@@ -236,7 +239,10 @@ class HotkeyListener:
             self._recorder.start_recording(device_id)
         except RuntimeError as e:
             self.is_recording = False
-            print(f"ERROR: {e}")
+            msg = f"Microphone error: {e}"
+            print(f"ERROR: {msg}")
+            if self._notify_fn:
+                self._notify_fn(msg, title="ScribeVibe — Error")
             return
 
         self.is_recording = True
@@ -299,7 +305,12 @@ class HotkeyListener:
             try:
                 self._process_task(task)
             except Exception as e:
-                print(f"ERROR in transcription worker: {e}")
+                msg = f"Unexpected error: {e}"
+                print(f"ERROR in transcription worker: {msg}")
+                if self._notify_fn:
+                    self._notify_fn(msg, title="ScribeVibe — Error")
+                if self._transcribing_indicator:
+                    self._transcribing_indicator.hide()
             finally:
                 self._queue.task_done()
 
@@ -316,15 +327,35 @@ class HotkeyListener:
             return
 
         print(f"Processing {audio_duration:.1f}s of audio...")
-        self._engine.ensure_model(model_size)
-        beam_size = config.load().get("beam_size", 2)
-        text, transcribe_time = self._engine.transcribe(audio_data, language, beam_size=beam_size)
+        if self._transcribing_indicator:
+            self._transcribing_indicator.show()
+        try:
+            self._engine.ensure_model(model_size)
+            beam_size = config.load().get("beam_size", 2)
+            text, transcribe_time = self._engine.transcribe(audio_data, language, beam_size=beam_size)
+        except Exception as e:
+            if self._transcribing_indicator:
+                self._transcribing_indicator.hide()
+            msg = f"Transcription error: {e}"
+            print(f"ERROR: {msg}")
+            if self._notify_fn:
+                self._notify_fn(msg, title="ScribeVibe — Error")
+            _play(_SND_DONE)
+            return
+
+        if self._transcribing_indicator:
+            self._transcribing_indicator.hide()
+
         if text:
             rtf = audio_duration / transcribe_time if transcribe_time > 0 else 0
             print(f"TRANSCRIBED in {transcribe_time:.2f}s: {text}")
             print(f"  Speed: {rtf:.1f}x faster than real-time")
             output_handler.type_text(text)
             output_handler.log_transcription(text, model_size, transcribe_time)
+        else:
+            print("WARNING: Transcription returned empty — speech not detected.")
+            if self._notify_fn:
+                self._notify_fn("Nothing transcribed — no speech detected.")
         _play(_SND_DONE)
 
     def start(self) -> None:

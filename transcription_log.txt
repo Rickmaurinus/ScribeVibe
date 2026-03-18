@@ -8,3 +8,4 @@
 [2026-03-18 18:14:08] [Systran/faster-distil-whisper-large-v3 | 0.99s] Test, test, test.
 [2026-03-18 19:15:25] [Systran/faster-distil-whisper-large-v3 | 0.68s] Yeah, I can well forester that.
 [2026-03-18 19:16:50] [Systran/faster-distil-whisper-large-v3 | 0.91s] Yeah, that is also. Yeah.
+[2026-03-18 19:22:21] [Systran/faster-distil-whisper-large-v3 | 1.31s] Yeah, that is also. Yeah, I don't know, I think it's also hard. I have also colleagues that I think, well, if I do not, I think, well, if the Curinia, I don't know, I think that, I think that actually...

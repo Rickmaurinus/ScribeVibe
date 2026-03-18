@@ -159,10 +159,10 @@ class HotkeyListener:
         ).start()
 
     def _install_key_hooks(self) -> None:
-        """Low-level keyboard hook that intercepts Insert and Pause,
-        suppresses their default behaviour and triggers our actions."""
+        """Low-level keyboard hook that intercepts Insert (record) and
+        Shift+Insert (switch language), suppressing their default behaviour."""
         VK_INSERT = 0x2D
-        VK_PAUSE = 0x13
+        VK_SHIFT = 0xA0   # VK_LSHIFT — used by GetAsyncKeyState
 
         # Completely separate user32 handle — avoids type conflicts with pynput
         _u32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -192,7 +192,15 @@ class HotkeyListener:
         ]
         _u32.GetMessageW.restype = ctypes.c_int
 
+        _u32.GetAsyncKeyState.argtypes = [ctypes.c_int]
+        _u32.GetAsyncKeyState.restype = ctypes.c_short
+
         listener_self = self  # prevent closure issues
+
+        def _shift_is_down():
+            """Check if either Shift key is currently held."""
+            return (_u32.GetAsyncKeyState(0xA0) & 0x8000) or \
+                   (_u32.GetAsyncKeyState(0xA1) & 0x8000)
 
         def hook_proc(nCode, wParam, lParam):
             try:
@@ -202,14 +210,14 @@ class HotkeyListener:
                     is_down = wParam in (0x0100, 0x0104)  # WM_KEYDOWN / WM_SYSKEYDOWN
 
                     if vk == VK_INSERT:
-                        if is_down:
-                            listener_self._insert_toggle()
-                        return 1  # suppress
-
-                    if vk == VK_PAUSE:
-                        if is_down:
+                        if is_down and _shift_is_down():
+                            # Shift+Insert → switch language
                             listener_self._pause_switch_language()
-                        return 1  # suppress
+                            return 1  # suppress
+                        elif is_down and not _shift_is_down():
+                            # Insert alone → toggle recording
+                            listener_self._insert_toggle()
+                        return 1  # suppress Insert in all cases
             except Exception:
                 pass
             return _u32.CallNextHookEx(None, nCode, wParam, lParam)
@@ -223,7 +231,7 @@ class HotkeyListener:
                 err = ctypes.get_last_error()
                 print(f"WARNING: Key hook failed (error {err})")
                 return
-            print("Key hooks installed — Insert (record) + Pause (switch language).")
+            print("Key hooks installed — Insert (record) + Shift+Insert (switch language).")
             msg = (ctypes.c_byte * 48)()  # MSG struct buffer
             while _u32.GetMessageW(msg, None, 0, 0) > 0:
                 pass

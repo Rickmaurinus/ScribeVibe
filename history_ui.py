@@ -33,6 +33,8 @@ _root_ref        = None
 _inner_ref       = None
 _first_entry_ref = [None]   # topmost entry widget
 _empty_lbl_ref   = [None]   # "no entries yet" label
+_scroll_cv_ref   = [None]   # scrollable canvas
+_all_entries: list[tuple[str, str, str]] = []   # full data, newest first
 
 
 # ── geometry helpers ──────────────────────────────────────────────────
@@ -100,6 +102,8 @@ def _make_entry(parent: tk.Frame, ts: str, meta: str, text: str,
     content   = tk.Frame(cv, bg=_CARD)
     frame_win = cv.create_window(_PAD, _PAD, window=content, anchor="nw")
 
+    _last_size = [0, 0]  # [width, height] — skip redraw if unchanged
+
     def _redraw(event=None):
         cw = cv.winfo_width()
         if cw <= 1:
@@ -107,6 +111,9 @@ def _make_entry(parent: tk.Frame, ts: str, meta: str, text: str,
             return
         fh = content.winfo_reqheight()
         h  = fh + _PAD * 2
+        if _last_size[0] == cw and _last_size[1] == h:
+            return
+        _last_size[0], _last_size[1] = cw, h
         cv.config(height=h)
         cv.itemconfig(frame_win, width=cw - _PAD * 2)
         # Shadow offset 3 px down-right; card flush top-left
@@ -169,8 +176,14 @@ def _make_entry(parent: tk.Frame, ts: str, meta: str, text: str,
     )
     text_lbl.pack(fill="x", pady=(8, 4))
 
+    _last_wrap = [0]
+
     def _resize_wrap(event, lbl=text_lbl):
-        lbl.config(wraplength=max(100, event.width - 30))
+        new_wrap = max(100, event.width - 30)
+        if new_wrap != _last_wrap[0]:
+            _last_wrap[0] = new_wrap
+            lbl.config(wraplength=new_wrap)
+
     content.bind("<Configure>", _resize_wrap, add="+")
 
     # Bind hover to every widget inside the card (done last, after all children exist)
@@ -202,6 +215,13 @@ def _on_new_transcription(ts: str, meta: str, text: str) -> None:
 
 def _prepend(ts: str, meta: str, text: str) -> None:
     """Insert a new card at the top of the list (tk thread)."""
+    _all_entries.insert(0, (ts, meta, text))
+
+    # If a search is active and the new entry doesn't match, skip the UI
+    query = _get_search_query()
+    if query and not _matches(query, ts, meta, text):
+        return
+
     if _empty_lbl_ref[0] is not None:
         _empty_lbl_ref[0].destroy()
         _empty_lbl_ref[0] = None
@@ -209,6 +229,79 @@ def _prepend(ts: str, meta: str, text: str) -> None:
     first = _first_entry_ref[0]
     new_entry = _make_entry(_inner_ref, ts, meta, text, before=first)
     _first_entry_ref[0] = new_entry
+
+
+# ── search / filter ───────────────────────────────────────────────────
+
+_search_entry_ref = [None]  # tk.Entry widget
+
+
+def _get_search_query() -> str:
+    """Return the current search string, or '' if empty/placeholder."""
+    entry = _search_entry_ref[0]
+    if entry is None:
+        return ""
+    val = entry.get().strip()
+    if not val or val == _PLACEHOLDER:
+        return ""
+    return val.lower()
+
+
+_PLACEHOLDER = "Search transcriptions\u2026"
+
+
+def _matches(query: str, ts: str, meta: str, text: str) -> bool:
+    return query in text.lower() or query in ts.lower() or query in meta.lower()
+
+
+def _apply_filter() -> None:
+    """Clear and rebuild cards matching the current search query."""
+    inner = _inner_ref
+    root = _root_ref
+    if inner is None or root is None:
+        return
+
+    scroll_cv = _scroll_cv_ref[0]
+
+    for child in inner.winfo_children():
+        child.destroy()
+    _first_entry_ref[0] = None
+    _empty_lbl_ref[0] = None
+
+    # Reset scroll to top
+    if scroll_cv is not None:
+        scroll_cv.yview_moveto(0)
+
+    query = _get_search_query()
+
+    if query:
+        matching = [(ts, m, t) for ts, m, t in _all_entries
+                    if _matches(query, ts, m, t)]
+    else:
+        matching = list(_all_entries)
+
+    if not matching:
+        msg = "No matching transcriptions." if query else "No transcriptions yet."
+        lbl = tk.Label(inner, text=msg,
+                       bg=_BG, fg=_DIM, font=("Segoe UI", 11), pady=40)
+        lbl.pack()
+        _empty_lbl_ref[0] = lbl
+        return
+
+    _BATCH = 20
+
+    def _load_batch(idx=0):
+        batch = matching[idx:idx + _BATCH]
+        if not batch:
+            return
+        for ts, meta, text in batch:
+            w = _make_entry(inner, ts, meta, text)
+            if _first_entry_ref[0] is None:
+                _first_entry_ref[0] = w
+        if idx + _BATCH < len(matching):
+            root.after(10, lambda: _load_batch(idx + _BATCH))
+
+    root.after(1, _load_batch)
 
 
 # ── window ────────────────────────────────────────────────────────────
@@ -233,6 +326,11 @@ def _run_window() -> None:
     def _clear_history():
         # Clear the log file
         open(output_handler.LOG_FILE, "w").close()
+        _all_entries.clear()
+        # Reset search box
+        search_entry.delete(0, "end")
+        search_entry.config(fg=_DIM)
+        search_entry.insert(0, _PLACEHOLDER)
         # Remove all cards from the UI
         for child in inner.winfo_children():
             child.destroy()
@@ -251,6 +349,49 @@ def _run_window() -> None:
               command=_clear_history).pack(side="right")
     tk.Frame(root, bg=_BORDER, height=1).pack(fill="x", padx=20, pady=(10, 0))
 
+    # Search bar
+    search_frame = tk.Frame(root, bg=_BG)
+    search_frame.pack(fill="x", padx=20, pady=(10, 0))
+
+    search_border = tk.Frame(search_frame, bg=_CARD,
+                             highlightthickness=1, highlightcolor=_ACCENT,
+                             highlightbackground=_BORDER)
+    search_border.pack(fill="x")
+
+    search_entry = tk.Entry(
+        search_border,
+        bg=_CARD, fg=_DIM, insertbackground=_FG,
+        font=("Segoe UI", 10),
+        relief="flat", highlightthickness=0, borderwidth=0,
+    )
+    search_entry.insert(0, _PLACEHOLDER)
+    search_entry.pack(fill="x", ipady=6, padx=(8, 4))
+    _search_entry_ref[0] = search_entry
+
+    def _on_focus_in(e):
+        if search_entry.get() == _PLACEHOLDER:
+            search_entry.delete(0, "end")
+        search_entry.config(fg=_FG)
+
+    def _on_focus_out(e):
+        if not search_entry.get().strip():
+            search_entry.delete(0, "end")
+            search_entry.config(fg=_DIM)
+            search_entry.insert(0, _PLACEHOLDER)
+
+    search_entry.bind("<FocusIn>", _on_focus_in)
+    search_entry.bind("<FocusOut>", _on_focus_out)
+
+    # Debounced filtering via KeyRelease — 200ms after last keystroke
+    _pending_filter = [None]
+
+    def _on_key(event=None):
+        if _pending_filter[0] is not None:
+            root.after_cancel(_pending_filter[0])
+        _pending_filter[0] = root.after(200, _apply_filter)
+
+    search_entry.bind("<KeyRelease>", _on_key)
+
     # Scrollable area
     outer = tk.Frame(root, bg=_BG)
     outer.pack(fill="both", expand=True, padx=20, pady=14)
@@ -265,16 +406,31 @@ def _run_window() -> None:
                           yscrollcommand=scrollbar.set)
     scroll_cv.pack(side="left", fill="both", expand=True)
     scrollbar.config(command=scroll_cv.yview)
+    _scroll_cv_ref[0] = scroll_cv
 
     inner = tk.Frame(scroll_cv, bg=_BG)
     win_id = scroll_cv.create_window((0, 0), window=inner, anchor="nw")
 
-    inner.bind("<Configure>",
-               lambda e: scroll_cv.configure(scrollregion=scroll_cv.bbox("all")))
+    _last_inner_h = [0]
+
+    def _update_scrollregion(e):
+        h = inner.winfo_reqheight()
+        if h != _last_inner_h[0]:
+            _last_inner_h[0] = h
+            scroll_cv.configure(scrollregion=scroll_cv.bbox("all"))
+
+    inner.bind("<Configure>", _update_scrollregion)
     scroll_cv.bind("<Configure>",
                    lambda e: scroll_cv.itemconfig(win_id, width=e.width))
 
     def _on_wheel(event):
+        # Only scroll when content is taller than the visible area
+        bbox = scroll_cv.bbox("all")
+        if bbox is None:
+            return
+        content_height = bbox[3] - bbox[1]
+        if content_height <= scroll_cv.winfo_height():
+            return
         scroll_cv.yview_scroll(int(-1 * (event.delta / 120)), "units")
     scroll_cv.bind_all("<MouseWheel>", _on_wheel)
 
@@ -282,6 +438,8 @@ def _run_window() -> None:
 
     # Populate with existing entries (batch-load for responsiveness)
     entries = _parse_log()
+    _all_entries.clear()
+    _all_entries.extend(entries)
     _BATCH = 20  # entries per render batch
 
     def _load_batch(idx=0):
@@ -317,6 +475,9 @@ def _run_window() -> None:
         _inner_ref = None
         _first_entry_ref[0] = None
         _empty_lbl_ref[0] = None
+        _search_entry_ref[0] = None
+        _scroll_cv_ref[0] = None
+        _all_entries.clear()
         _open = False
         root.withdraw()
         root.quit()

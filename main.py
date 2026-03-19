@@ -63,6 +63,7 @@ def _warmup(engine: WhisperEngine, tray: TrayApp, model_size: str) -> None:
 
 
 def main() -> None:
+    paths.ensure_app_dir()
     _setup_logging()
     logging.info(f"ScribeVibe v{__version__} starting...")
 
@@ -97,6 +98,7 @@ def main() -> None:
     )
     tray.set_hook(listener.hook)
     listener.start()
+    app.aboutToQuit.connect(listener.stop)
 
     # Eager model load + CUDA warm-up in background (default language = first in cycle)
     default_lang = LANGUAGES[LANGUAGE_CYCLE[0]]

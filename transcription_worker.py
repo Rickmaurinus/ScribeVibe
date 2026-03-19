@@ -17,21 +17,32 @@ logger = logging.getLogger(__name__)
 class TranscriptionWorker:
     """Processes transcription tasks from a queue on a background daemon thread."""
 
+    _STOP = object()  # sentinel value
+
     def __init__(self, engine, notify_fn: Callable | None = None) -> None:
         self._engine = engine
         self._notify_fn = notify_fn
         cfg = config.load()
         self._snd_done = get_resource_path(cfg["sound_done"])
         self._queue: queue.Queue = queue.Queue()
-        threading.Thread(target=self._loop, daemon=True).start()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
 
     def submit(self, task: dict) -> None:
         """Queue a transcription task."""
         self._queue.put(task)
 
+    def stop(self, timeout: float = 5.0) -> None:
+        """Signal the worker to stop after finishing any current task and wait for it."""
+        self._queue.put(self._STOP)
+        self._thread.join(timeout=timeout)
+
     def _loop(self) -> None:
         while True:
             task = self._queue.get()
+            if task is self._STOP:
+                self._queue.task_done()
+                return
             try:
                 self._process(task)
             except Exception as e:

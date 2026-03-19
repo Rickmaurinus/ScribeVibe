@@ -38,10 +38,19 @@ class Config:
 
     def _load_from_disk(self) -> dict:
         if os.path.exists(self._settings_file):
-            with open(self._settings_file) as f:
-                data = json.load(f)
-            self._cache = {**DEFAULTS, **data}
-            self._cache_mtime = os.path.getmtime(self._settings_file)
+            try:
+                with open(self._settings_file) as f:
+                    data = json.load(f)
+                self._cache = {**DEFAULTS, **data}
+                self._cache_mtime = os.path.getmtime(self._settings_file)
+            except json.JSONDecodeError:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "settings.json is corrupted — falling back to defaults"
+                )
+                self._cache = dict(DEFAULTS)
+                self._cache_mtime = 0.0
         else:
             self._cache = dict(DEFAULTS)
             self._cache_mtime = 0.0

@@ -56,7 +56,7 @@ class HotkeyListener:
         self._hook.install()
 
     def stop(self) -> None:
-        pass  # hook runs on a daemon thread and exits with the process
+        self._worker.stop()  # drain queue and wait for current task to finish
 
     def join(self) -> None:
         pass

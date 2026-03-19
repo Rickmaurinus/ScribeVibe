@@ -75,9 +75,7 @@ if __name__ == "__main__":
 
     tray = TrayApp(engine=engine)
     tray.setup()  # must be called on the main Qt thread
-
-    # Wire up download notifications
-    engine._notify_fn = tray.notify
+    engine.set_notify_fn(tray.notify)
 
     indicator = RecordingIndicator()
     indicator.create_widget()  # must be called after QApplication exists

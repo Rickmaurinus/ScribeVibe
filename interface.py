@@ -246,7 +246,7 @@ class HotkeyListener:
         self.is_recording = True
         if self._indicator:
             # Feed live audio chunks to the waveform visualizer
-            self._recorder._live_callback = self._indicator.feed_audio
+            self._recorder.set_live_callback(self._indicator.feed_audio)
             self._indicator.show(self._active_language)
 
         # Pre-fetch model during recording if a swap is needed
@@ -270,7 +270,7 @@ class HotkeyListener:
 
     def _stop_recording(self):
         self.is_recording = False
-        self._recorder._live_callback = None
+        self._recorder.set_live_callback(None)
         if self._indicator:
             self._indicator.hide()
         _play(self._snd_stop)
@@ -287,7 +287,7 @@ class HotkeyListener:
     def _abort_recording(self) -> None:
         """Stop recording and discard audio — no transcription queued."""
         self.is_recording = False
-        self._recorder._live_callback = None
+        self._recorder.set_live_callback(None)
         if self._indicator:
             self._indicator.hide()
         self._recorder.stop_recording_raw()  # discard captured audio

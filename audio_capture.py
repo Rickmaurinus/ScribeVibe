@@ -24,7 +24,11 @@ class AudioRecorder:
         self._stream_rate: int = TARGET_SAMPLE_RATE
         self._needs_resample: bool = False
         self._current_device: int | None = None
-        self._live_callback = None  # called with each audio chunk while capturing
+        self._live_callback = None
+
+    def set_live_callback(self, fn) -> None:
+        """Set (or clear with None) the callback invoked with each captured chunk."""
+        self._live_callback = fn
 
     # ── stream lifecycle (called once, or when mic changes) ──────────
 

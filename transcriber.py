@@ -32,13 +32,17 @@ def _is_model_cached(model_size: str) -> bool:
 
 
 class WhisperEngine:
-    def __init__(self, model_size: str | None = None) -> None:
+    def __init__(self, model_size: str | None = None, notify_fn=None) -> None:
         self._model: WhisperModel | None = None
         self.current_model: str | None = None
         self._lock = threading.Lock()
-        self._notify_fn = None  # set by main.py for download notifications
+        self._notify_fn = notify_fn
         if model_size is not None:
             self.ensure_model(model_size)
+
+    def set_notify_fn(self, fn) -> None:
+        """Set the callback used to surface download notifications to the UI."""
+        self._notify_fn = fn
 
     def ensure_model(self, model_size: str) -> None:
         """Load *model_size* into VRAM, swapping out the current model if different."""

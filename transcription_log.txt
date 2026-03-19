@@ -27,3 +27,6 @@
 [2026-03-18 22:39:20] [Systran/faster-distil-whisper-large-v3 | 0.91s] This is a test.
 [2026-03-19 08:20:50] [Systran/faster-distil-whisper-large-v3 | 1.39s] No, no.
 [2026-03-19 08:21:24] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.34s] Ehm.
+[2026-03-19 08:41:30] [Systran/faster-distil-whisper-large-v3 | 1.26s] This is the obname. This is the recording. Let's see if it works.
+[2026-03-19 08:41:51] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.42s] Hier is de volgende opname. Laten we kijken of die werkt.
+[2026-03-19 08:42:02] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.44s] Wat nou als ik nog een opname doe? Dan is de vraag, werkt dat of werkt dat niet?

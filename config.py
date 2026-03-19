@@ -1,7 +1,9 @@
 import json
 import os
 
-SETTINGS_FILE = "settings.json"
+import paths
+
+SETTINGS_FILE = paths.SETTINGS_FILE
 
 DEFAULTS = {
     "device_id": None,

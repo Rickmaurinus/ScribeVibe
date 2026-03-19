@@ -16,6 +16,7 @@ except Exception:
         pass
 
 import config
+import paths
 from transcriber import WhisperEngine
 from interface import HotkeyListener
 from language_overlay import LanguageOverlay
@@ -33,7 +34,7 @@ def _setup_logging() -> None:
                             datefmt="%Y-%m-%d %H:%M:%S")
 
     # File handler — 1 MB max, keep 1 backup
-    fh = RotatingFileHandler("scribevibe.log", maxBytes=1_000_000,
+    fh = RotatingFileHandler(paths.APP_LOG, maxBytes=1_000_000,
                              backupCount=1, encoding="utf-8")
     fh.setFormatter(fmt)
     root_logger.addHandler(fh)
@@ -83,7 +84,8 @@ def main() -> None:
     lang_overlay.start()
 
     listener = HotkeyListener(engine=engine, indicator=indicator,
-                              language_overlay=lang_overlay)
+                              language_overlay=lang_overlay,
+                              notify_fn=tray.notify)
     listener.start()
 
     # Eager model load + CUDA warm-up in background

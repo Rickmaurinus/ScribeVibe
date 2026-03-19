@@ -7,9 +7,11 @@ import time
 import win32clipboard
 import win32con
 
+import paths
+
 logger = logging.getLogger(__name__)
 
-LOG_FILE = "transcription_log.txt"
+LOG_FILE = paths.LOG_FILE
 
 _paste_lock = threading.Lock()
 

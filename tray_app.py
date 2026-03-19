@@ -1,9 +1,12 @@
 """System tray interface for ScribeVibe (PySide6 QSystemTrayIcon)."""
 import io
+import logging
 import sys
 import threading
 import os
 import winreg
+
+logger = logging.getLogger(__name__)
 
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtGui import QAction, QActionGroup, QIcon, QPixmap, QImage
@@ -49,7 +52,7 @@ def _set_autostart(enabled: bool) -> None:
                 pass
         winreg.CloseKey(key)
     except OSError as e:
-        print(f"Registry error: {e}")
+        logger.error("Registry error: %s", e)
 
 # ── Model definitions ───────────────────────────────────────────────
 

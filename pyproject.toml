@@ -18,7 +18,6 @@ dependencies = [
     "pyqtgraph>=0.13.3,<1",
     "pywin32>=311",
     "Pillow>=10.0.0,<13",
-    "pystray>=0.19.5,<1",
     # torch must be installed separately with the CUDA wheel index — see requirements.txt
 ]
 

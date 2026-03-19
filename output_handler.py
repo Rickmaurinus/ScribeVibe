@@ -1,10 +1,13 @@
 """Handles text output: paste-at-cursor and logging to file."""
 import ctypes
 import datetime
+import logging
 import threading
 import time
 import win32clipboard
 import win32con
+
+logger = logging.getLogger(__name__)
 
 LOG_FILE = "transcription_log.txt"
 
@@ -50,7 +53,8 @@ def _wait_clipboard_ready(expected: str, timeout_ms: int = 50) -> None:
             try:
                 win32clipboard.CloseClipboard()
             except Exception:
-                pass
+                pass  # CloseClipboard cleanup — nothing to do if it fails
+            logger.debug("Clipboard not ready yet (locked or unavailable), retrying...")
         time.sleep(0.002)
 
 
@@ -73,8 +77,8 @@ def copy_to_hidden_clipboard(text: str) -> None:
             "ExcludeClipboardContentFromMonitorProcessing"
         )
         win32clipboard.SetClipboardData(exclude_format, b'\x00')
-    except Exception as e:
-        print(f"Clipboard error: {e}")
+    except Exception:
+        logger.exception("Failed to write to clipboard")
     finally:
         win32clipboard.CloseClipboard()
 

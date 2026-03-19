@@ -10,6 +10,7 @@ Hotkeys:
 """
 import ctypes
 import ctypes.wintypes as wt
+import logging
 import os
 import queue
 import sys
@@ -21,6 +22,8 @@ import numpy as np
 import sounddevice as sd
 
 import config
+
+logger = logging.getLogger(__name__)
 import output_handler
 from audio_capture import AudioRecorder, SAMPLE_RATE
 from transcriber import WhisperEngine
@@ -85,7 +88,7 @@ class HotkeyListener:
         try:
             self._recorder.open_stream(device_id)
         except RuntimeError as e:
-            print(f"WARNING: Could not pre-open mic: {e}")
+            logger.warning("Could not pre-open mic: %s", e)
 
     # ── Insert / Shift+Insert — Win32 low-level hook with suppression ──
 
@@ -121,7 +124,7 @@ class HotkeyListener:
         self._active_model_size = cfg.get(model_key, fallback)
 
         label = "ENGLISH" if self._active_language == "en" else "DUTCH"
-        print(f"Language switched to {label} — Model: {self._active_model_size}")
+        logger.info("Language switched to %s — Model: %s", label, self._active_model_size)
 
         # Show fading overlay
         if self._language_overlay:
@@ -201,7 +204,7 @@ class HotkeyListener:
                             listener_self._abort_recording()
                             return 1  # suppress only when recording
             except Exception:
-                pass
+                logger.exception("Error in keyboard hook proc — passing event through")
             return _u32.CallNextHookEx(None, nCode, wParam, lParam)
 
         # prevent GC of the callback
@@ -211,9 +214,9 @@ class HotkeyListener:
             hook = _u32.SetWindowsHookExW(13, self._hook_proc_ref, None, 0)
             if not hook:
                 err = ctypes.get_last_error()
-                print(f"WARNING: Key hook failed (error {err})")
+                logger.warning("Key hook failed (error %d)", err)
                 return
-            print("Key hooks installed — Insert (record) + Shift+Insert (switch language) + Escape (abort).")
+            logger.info("Key hooks installed — Insert (record) + Shift+Insert (switch language) + Escape (abort).")
             msg = (ctypes.c_byte * 48)()  # MSG struct buffer
             while _u32.GetMessageW(msg, None, 0, 0) > 0:
                 pass
@@ -238,7 +241,7 @@ class HotkeyListener:
         except RuntimeError as e:
             self.is_recording = False
             msg = f"Microphone error: {e}"
-            print(f"ERROR: {msg}")
+            logger.error(msg)
             if self._notify_fn:
                 self._notify_fn(msg, title="ScribeVibe — Error")
             return
@@ -266,7 +269,7 @@ class HotkeyListener:
     def _log_recording_start(self, device_id, lang, model):
         label = "ENGLISH" if lang == "en" else "DUTCH"
         mic_name = sd.query_devices(device_id)["name"] if device_id is not None else "default"
-        print(f"RECORDING ({label}) — Model: {model} — Mic: {mic_name}")
+        logger.info("RECORDING (%s) — Model: %s — Mic: %s", label, model, mic_name)
 
     def _stop_recording(self):
         self.is_recording = False
@@ -292,7 +295,7 @@ class HotkeyListener:
             self._indicator.hide()
         self._recorder.stop_recording_raw()  # discard captured audio
         _play(self._snd_stop)
-        print("Recording aborted.")
+        logger.info("Recording aborted.")
 
     # ── background worker ─────────────────────────────────────────────
 
@@ -304,7 +307,7 @@ class HotkeyListener:
                 self._process_task(task)
             except Exception as e:
                 msg = f"Unexpected error: {e}"
-                print(f"ERROR in transcription worker: {msg}")
+                logger.error("Transcription worker error: %s", msg)
                 if self._notify_fn:
                     self._notify_fn(msg, title="ScribeVibe — Error")
                 if self._transcribing_indicator:
@@ -324,7 +327,7 @@ class HotkeyListener:
             _play(self._snd_done)
             return
 
-        print(f"Processing {audio_duration:.1f}s of audio...")
+        logger.info("Processing %.1fs of audio...", audio_duration)
         if self._transcribing_indicator:
             self._transcribing_indicator.show()
         try:
@@ -335,7 +338,7 @@ class HotkeyListener:
             if self._transcribing_indicator:
                 self._transcribing_indicator.hide()
             msg = f"Transcription error: {e}"
-            print(f"ERROR: {msg}")
+            logger.error(msg)
             if self._notify_fn:
                 self._notify_fn(msg, title="ScribeVibe — Error")
             _play(self._snd_done)
@@ -346,12 +349,11 @@ class HotkeyListener:
 
         if text:
             rtf = audio_duration / transcribe_time if transcribe_time > 0 else 0
-            print(f"TRANSCRIBED in {transcribe_time:.2f}s: {text}")
-            print(f"  Speed: {rtf:.1f}x faster than real-time")
+            logger.info("TRANSCRIBED in %.2fs (%.1fx real-time): %s", transcribe_time, rtf, text)
             output_handler.type_text(text)
             output_handler.log_transcription(text, model_size, transcribe_time)
         else:
-            print("WARNING: Transcription returned empty — speech not detected.")
+            logger.warning("Transcription returned empty — speech not detected.")
             if self._notify_fn:
                 self._notify_fn("Nothing transcribed — no speech detected.")
         _play(self._snd_done)

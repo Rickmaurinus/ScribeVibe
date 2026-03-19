@@ -59,8 +59,7 @@ def _warmup(engine: WhisperEngine, tray: TrayApp, model_size: str) -> None:
     engine.warmup()
     tray.notify("Model loaded & CUDA warm-up done — ready to transcribe!")
 
-
-if __name__ == "__main__":
+def main() -> None:
     _setup_logging()
     logging.info(f"ScribeVibe v{__version__} starting...")
 
@@ -94,7 +93,11 @@ if __name__ == "__main__":
         daemon=True,
     ).start()
 
-    print(f"\nScribeVibe ready. F13=English  F14=Dutch  Insert=Record  Pause=Switch language  Ctrl+C to quit.\n")
+    logging.info("ScribeVibe ready. Insert=Record  Shift+Insert=Switch language  Escape=Abort")
 
     # Run the Qt event loop on the main thread (required by PySide6)
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

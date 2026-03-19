@@ -30,3 +30,9 @@
 [2026-03-19 08:41:30] [Systran/faster-distil-whisper-large-v3 | 1.26s] This is the obname. This is the recording. Let's see if it works.
 [2026-03-19 08:41:51] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.42s] Hier is de volgende opname. Laten we kijken of die werkt.
 [2026-03-19 08:42:02] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.44s] Wat nou als ik nog een opname doe? Dan is de vraag, werkt dat of werkt dat niet?
+[2026-03-19 08:49:39] [Systran/faster-distil-whisper-large-v3 | 1.46s] Okay, I want to see if this works. Let's see what translation does name.
+[2026-03-19 08:49:52] [Systran/faster-distil-whisper-large-v3 | 0.85s] I want to see if this works. Let's see what translation does for us now.
+[2026-03-19 08:50:14] [deepdml/faster-whisper-large-v3-turbo-ct2 | 0.95s] Ik wil zien of dit werkt om te weten of de vertaling en de transcriberen op zich goed werkt.
+[2026-03-19 08:56:27] [Systran/faster-distil-whisper-large-v3 | 0.80s] Recording in English now. So everything at the chord shot beat.
+[2026-03-19 08:56:35] [Systran/faster-distil-whisper-large-v3 | 0.88s] Everything I record should be translated.
+[2026-03-19 08:56:48] [deepdml/faster-whisper-large-v3-turbo-ct2 | 0.99s] Alles wat ik neerzet en alles wat ik zeg, zou vertaald mogelijk worden.

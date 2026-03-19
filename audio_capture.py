@@ -1,10 +1,13 @@
 """Always-on audio capture — stream stays open, recording toggles a flag."""
 import collections
+import logging
 import threading
 
 import numpy as np
 import sounddevice as sd
 import soxr
+
+logger = logging.getLogger(__name__)
 
 TARGET_SAMPLE_RATE = 16000   # Whisper expects 16 kHz
 CHANNELS = 1
@@ -48,7 +51,7 @@ class AudioRecorder:
                     try:
                         self._live_callback(chunk)
                     except Exception:
-                        pass
+                        logger.exception("Live audio callback raised an exception")
 
         # Try native 16 kHz first — lets PortAudio handle resampling in hardware
         try:
@@ -62,7 +65,7 @@ class AudioRecorder:
             self._stream.start()
             self._stream_rate = TARGET_SAMPLE_RATE
             self._needs_resample = False
-            print(f"Mic stream opened at native 16 kHz — no resampling needed.")
+            logger.info("Mic stream opened at native 16 kHz — no resampling needed.")
             return
         except (sd.PortAudioError, ValueError):
             # Device doesn't support 16 kHz — fall back to 48 kHz + soxr
@@ -96,7 +99,7 @@ class AudioRecorder:
 
         self._stream_rate = FALLBACK_RATE
         self._needs_resample = True
-        print(f"Mic stream opened at 48 kHz — will resample to 16 kHz via soxr.")
+        logger.info("Mic stream opened at 48 kHz — will resample to 16 kHz via soxr.")
 
     def _close_stream(self) -> None:
         if self._stream is not None:

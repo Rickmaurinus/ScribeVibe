@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "scribevibe"
+version = "1.0.0"
+description = "GPU-accelerated push-to-talk transcription for Windows"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "faster-whisper>=1.0.3,<2",
+    "numpy>=1.26.4,<3",
+    "sounddevice>=0.5.5,<1",
+    "soxr>=1.0.0,<2",
+    "PySide6>=6.6.0,<7",
+    "pyqtgraph>=0.13.3,<1",
+    "pywin32>=311",
+    "Pillow>=10.0.0,<13",
+    "pystray>=0.19.5,<1",
+    # torch must be installed separately with the CUDA wheel index — see requirements.txt
+]
+
+[project.scripts]
+scribevibe = "main:main"
+scribevibe-select-mic = "select_mic:main"
+
+# NOTE: flat layout — all modules live at the project root.
+# A future src/scribevibe/ migration would require updating all imports.
+[tool.setuptools]
+py-modules = [
+    "main",
+    "config",
+    "transcriber",
+    "audio_capture",
+    "interface",
+    "output_handler",
+    "tray_app",
+    "history_ui",
+    "language_overlay",
+    "recording_indicator",
+    "select_mic",
+]

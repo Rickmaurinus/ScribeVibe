@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import paths
 
@@ -15,8 +16,9 @@ DEFAULTS = {
     "sound_done": "assets/done.wav",
 }
 
+
 class Config:
-    def __init__(self, settings_file: str = SETTINGS_FILE) -> None:
+    def __init__(self, settings_file: Path | str = SETTINGS_FILE) -> None:
         self._settings_file = settings_file
         self._cache: dict | None = None
 
@@ -27,7 +29,7 @@ class Config:
 
     def _load_from_disk(self) -> dict:
         if os.path.exists(self._settings_file):
-            with open(self._settings_file, "r") as f:
+            with open(self._settings_file) as f:
                 data = json.load(f)
             self._cache = {**DEFAULTS, **data}
         else:
@@ -59,8 +61,21 @@ class Config:
 _instance = Config()
 
 
-def load() -> dict:                      return _instance.load()
-def save(settings: dict) -> None:        _instance.save(settings)
-def set_device(device_id) -> None:       _instance.set_device(device_id)
-def set_model_size_en(size_name) -> None: _instance.set_model_size_en(size_name)
-def set_model_size_nl(size_name) -> None: _instance.set_model_size_nl(size_name)
+def load() -> dict:
+    return _instance.load()
+
+
+def save(settings: dict) -> None:
+    _instance.save(settings)
+
+
+def set_device(device_id) -> None:
+    _instance.set_device(device_id)
+
+
+def set_model_size_en(size_name) -> None:
+    _instance.set_model_size_en(size_name)
+
+
+def set_model_size_nl(size_name) -> None:
+    _instance.set_model_size_nl(size_name)

@@ -1,27 +1,29 @@
 """Real-time scrolling waveform indicator using PySide6 + PyQtGraph."""
+
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import Qt, Signal, QObject, Slot
-from PySide6.QtGui import QColor, QFont, QLinearGradient, QBrush
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtCore import QObject, Qt, Signal, Slot
+from PySide6.QtGui import QBrush, QColor, QFont, QLinearGradient
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 pg.setConfigOptions(antialias=True)
 
 # ── constants ────────────────────────────────────────────────────────
-_BUFFER_LEN = 4000        # samples in the rolling buffer (~0.25s at 16 kHz)
-_UPDATE_MS = 30           # refresh interval (~33 fps)
-_WIN_W = 420              # window width  (logical px)
-_WIN_H = 132              # window height (logical px)
-_MARGIN_BOTTOM = 40       # px from bottom of screen
+_BUFFER_LEN = 4000  # samples in the rolling buffer (~0.25s at 16 kHz)
+_UPDATE_MS = 30  # refresh interval (~33 fps)
+_WIN_W = 420  # window width  (logical px)
+_WIN_H = 132  # window height (logical px)
+_MARGIN_BOTTOM = 40  # px from bottom of screen
 _LINE_WIDTH = 1.5
-_LINE_COLOR = "#00e5ff"   # bright cyan
-_GRAD_TOP = QColor(0, 229, 255, 90)    # cyan, semi-transparent
-_GRAD_MID = QColor(0, 229, 255, 10)    # cyan, nearly transparent
+_LINE_COLOR = "#00e5ff"  # bright cyan
+_GRAD_TOP = QColor(0, 229, 255, 90)  # cyan, semi-transparent
+_GRAD_MID = QColor(0, 229, 255, 10)  # cyan, nearly transparent
 _BG_COLOR = "#0a0a0a"
 
 
 class _AudioBridge(QObject):
     """Thread-safe bridge: audio callback (any thread) → Qt slot (GUI thread)."""
+
     chunk_ready = Signal(np.ndarray)
     show_signal = Signal()
     hide_signal = Signal()
@@ -36,7 +38,7 @@ class WaveformWidget(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool            # hides from taskbar
+            | Qt.WindowType.Tool  # hides from taskbar
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setStyleSheet(f"background: {_BG_COLOR}; border-radius: 12px;")
@@ -87,9 +89,11 @@ class WaveformWidget(QWidget):
 
         # Upper waveform (positive envelope) with gradient fill
         self._curve_upper = self._pw.plot(
-            self._x, self._buf,
+            self._x,
+            self._buf,
             pen=pg.mkPen(color=_LINE_COLOR, width=_LINE_WIDTH),
-            fillLevel=0, fillBrush=fill_brush,
+            fillLevel=0,
+            fillBrush=fill_brush,
         )
 
         # Lower mirror (negative envelope) with gradient fill
@@ -100,9 +104,11 @@ class WaveformWidget(QWidget):
         fill_brush_lower = QBrush(grad_lower)
 
         self._curve_lower = self._pw.plot(
-            self._x, self._buf,
+            self._x,
+            self._buf,
             pen=pg.mkPen(color=_LINE_COLOR, width=_LINE_WIDTH),
-            fillLevel=0, fillBrush=fill_brush_lower,
+            fillLevel=0,
+            fillBrush=fill_brush_lower,
         )
 
         # ── audio bridge ─────────────────────────────────────────────

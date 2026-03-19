@@ -1,4 +1,5 @@
 """Always-on audio capture — stream stays open, recording toggles a flag."""
+
 import collections
 import logging
 import threading
@@ -9,7 +10,7 @@ import soxr
 
 logger = logging.getLogger(__name__)
 
-TARGET_SAMPLE_RATE = 16000   # Whisper expects 16 kHz
+TARGET_SAMPLE_RATE = 16000  # Whisper expects 16 kHz
 CHANNELS = 1
 DTYPE = "float32"
 SAMPLE_RATE = TARGET_SAMPLE_RATE  # public alias
@@ -77,9 +78,7 @@ class AudioRecorder:
                 self._stream = None
 
         # Fallback: open at 48 kHz, resample later with soxr
-        device_info = sd.query_devices(
-            device_id if device_id is not None else sd.default.device[0]
-        )
+        device_info = sd.query_devices(device_id if device_id is not None else sd.default.device[0])
         self._stream = sd.InputStream(
             samplerate=FALLBACK_RATE,
             channels=CHANNELS,

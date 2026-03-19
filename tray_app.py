@@ -1,21 +1,22 @@
 """System tray interface for ScribeVibe (PySide6 QSystemTrayIcon)."""
+
 import io
 import logging
+import os
 import sys
 import threading
-import os
 import winreg
 
-logger = logging.getLogger(__name__)
-
-from PySide6.QtCore import QObject, Signal, Slot
-from PySide6.QtGui import QAction, QActionGroup, QIcon, QPixmap, QImage
-from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication
 from PIL import Image, ImageDraw
+from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtGui import QAction, QActionGroup, QIcon, QImage, QPixmap
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 import config
 from history_ui import show_history
 from select_mic import get_clean_mic_list
+
+logger = logging.getLogger(__name__)
 
 # ── Auto-start helpers ──────────────────────────────────────────────
 
@@ -54,20 +55,21 @@ def _set_autostart(enabled: bool) -> None:
     except OSError as e:
         logger.error("Registry error: %s", e)
 
+
 # ── Model definitions ───────────────────────────────────────────────
 
 EN_MODELS = [
-    ("base.en",   "Base (EN)"),
-    ("small.en",  "Small (EN)"),
+    ("base.en", "Base (EN)"),
+    ("small.en", "Small (EN)"),
     ("medium.en", "Medium (EN)"),
     ("Systran/faster-distil-whisper-medium.en", "Distil-Medium (EN)"),
     ("Systran/faster-distil-whisper-large-v3", "Distil-Large-v3 (EN)"),
 ]
 
 NL_MODELS = [
-    ("base",      "Base"),
-    ("small",     "Small"),
-    ("medium",    "Medium"),
+    ("base", "Base"),
+    ("small", "Small"),
+    ("medium", "Medium"),
     ("deepdml/faster-whisper-large-v3-turbo-ct2", "Large-v3-Turbo"),
 ]
 
@@ -128,6 +130,7 @@ def _generate_icon() -> Image.Image:
 
 class _NotifyBridge(QObject):
     """Thread-safe bridge for notifications from worker threads."""
+
     notify_signal = Signal(str, str)
 
 
@@ -269,6 +272,7 @@ class TrayApp:
     def setup(self) -> None:
         """Create and show the tray icon. Must be called on the main (Qt) thread."""
         from main import __version__
+
         icon = _pil_to_qicon(_generate_icon())
         self._tray = QSystemTrayIcon(icon)
         self._tray.setToolTip(f"ScribeVibe v{__version__}")

@@ -1,9 +1,10 @@
 """Recording state machine for ScribeVibe."""
+
 import logging
 import threading
 import time
 import winsound
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import sounddevice as sd
 
@@ -29,8 +30,8 @@ class RecordingSession:
         engine,
         indicator=None,
         language_overlay=None,
-        notify_fn: Optional[Callable] = None,
-        on_task_ready: Optional[Callable] = None,
+        notify_fn: Callable | None = None,
+        on_task_ready: Callable | None = None,
     ) -> None:
         self._engine = engine
         self._indicator = indicator
@@ -46,7 +47,7 @@ class RecordingSession:
 
         cfg = config.load()
         self._snd_start = get_resource_path(cfg["sound_start"])
-        self._snd_stop  = get_resource_path(cfg["sound_stop"])
+        self._snd_stop = get_resource_path(cfg["sound_stop"])
 
         # Pre-warm sound files from disk so playback is instant
         for path in (self._snd_start, self._snd_stop):
@@ -117,9 +118,7 @@ class RecordingSession:
         cfg = config.load()
         device_id = cfg.get("device_id")
         model_key = "model_size_en" if self._active_language == "en" else "model_size_nl"
-        self._active_model_size = cfg.get(
-            model_key, "small.en" if self._active_language == "en" else "small"
-        )
+        self._active_model_size = cfg.get(model_key, "small.en" if self._active_language == "en" else "small")
 
         _play(self._snd_start)
 
@@ -160,11 +159,13 @@ class RecordingSession:
         _play(self._snd_stop)
         raw = self._recorder.stop_recording_raw()
         if self._on_task_ready:
-            self._on_task_ready({
-                "raw": raw,
-                "lang": self._active_language,
-                "model_size": self._active_model_size,
-            })
+            self._on_task_ready(
+                {
+                    "raw": raw,
+                    "lang": self._active_language,
+                    "model_size": self._active_model_size,
+                }
+            )
 
     def _log_start(self, device_id, lang, model) -> None:
         label = "ENGLISH" if lang == "en" else "DUTCH"

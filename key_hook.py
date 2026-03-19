@@ -1,8 +1,10 @@
 """Win32 low-level keyboard hook for ScribeVibe."""
+
 import ctypes
 import logging
 import threading
-from typing import Callable
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ class KeyHook:
         self._on_record_toggle = on_record_toggle
         self._on_language_switch = on_language_switch
         self._on_abort = on_abort
-        self._hook_proc_ref = None  # keep alive to prevent GC
+        self._hook_proc_ref: Any = None  # keep alive to prevent GC
 
     def install(self) -> None:
         """Install the keyboard hook on a background daemon thread."""
@@ -35,18 +37,24 @@ class KeyHook:
         _u32 = ctypes.WinDLL("user32", use_last_error=True)
 
         LRESULT = ctypes.c_ssize_t
-        WPARAM  = ctypes.c_size_t
-        LPARAM  = ctypes.c_ssize_t
+        WPARAM = ctypes.c_size_t
+        LPARAM = ctypes.c_ssize_t
 
         LLKeyboardProc = ctypes.WINFUNCTYPE(LRESULT, ctypes.c_int, WPARAM, LPARAM)
 
         _u32.SetWindowsHookExW.argtypes = [
-            ctypes.c_int, LLKeyboardProc, ctypes.c_void_p, ctypes.c_ulong,
+            ctypes.c_int,
+            LLKeyboardProc,
+            ctypes.c_void_p,
+            ctypes.c_ulong,
         ]
         _u32.SetWindowsHookExW.restype = ctypes.c_void_p
 
         _u32.CallNextHookEx.argtypes = [
-            ctypes.c_void_p, ctypes.c_int, WPARAM, LPARAM,
+            ctypes.c_void_p,
+            ctypes.c_int,
+            WPARAM,
+            LPARAM,
         ]
         _u32.CallNextHookEx.restype = LRESULT
 
@@ -54,22 +62,22 @@ class KeyHook:
         _u32.UnhookWindowsHookEx.restype = ctypes.c_int
 
         _u32.GetMessageW.argtypes = [
-            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_uint,
+            ctypes.c_uint,
         ]
         _u32.GetMessageW.restype = ctypes.c_int
 
         _u32.GetAsyncKeyState.argtypes = [ctypes.c_int]
         _u32.GetAsyncKeyState.restype = ctypes.c_short
 
-        on_record_toggle   = self._on_record_toggle
+        on_record_toggle = self._on_record_toggle
         on_language_switch = self._on_language_switch
-        on_abort           = self._on_abort
+        on_abort = self._on_abort
 
         def _shift_is_down() -> bool:
-            return bool(
-                (_u32.GetAsyncKeyState(0xA0) & 0x8000)
-                or (_u32.GetAsyncKeyState(0xA1) & 0x8000)
-            )
+            return bool((_u32.GetAsyncKeyState(0xA0) & 0x8000) or (_u32.GetAsyncKeyState(0xA1) & 0x8000))
 
         def hook_proc(nCode, wParam, lParam):
             try:
@@ -99,9 +107,7 @@ class KeyHook:
             if not hook:
                 logger.warning("Key hook failed (error %d)", ctypes.get_last_error())
                 return
-            logger.info(
-                "Key hooks installed — Insert (record) + Shift+Insert (language) + Escape (abort)."
-            )
+            logger.info("Key hooks installed — Insert (record) + Shift+Insert (language) + Escape (abort).")
             msg = (ctypes.c_byte * 48)()
             while _u32.GetMessageW(msg, None, 0, 0) > 0:
                 pass

@@ -1,13 +1,14 @@
 """Background transcription worker for ScribeVibe."""
+
 import logging
 import queue
 import threading
 import winsound
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import config
 import output_handler
-from audio_capture import AudioRecorder, SAMPLE_RATE
+from audio_capture import SAMPLE_RATE, AudioRecorder
 from paths import get_resource_path
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ def _play(path: str) -> None:
 class TranscriptionWorker:
     """Processes transcription tasks from a queue on a background daemon thread."""
 
-    def __init__(self, engine, notify_fn: Optional[Callable] = None) -> None:
+    def __init__(self, engine, notify_fn: Callable | None = None) -> None:
         self._engine = engine
         self._notify_fn = notify_fn
         cfg = config.load()
@@ -46,7 +47,7 @@ class TranscriptionWorker:
                 self._queue.task_done()
 
     def _process(self, task: dict) -> None:
-        language   = task["lang"]
+        language = task["lang"]
         model_size = task["model_size"]
 
         audio_data = AudioRecorder.process_raw(task["raw"])
@@ -71,9 +72,7 @@ class TranscriptionWorker:
 
         if text:
             rtf = audio_duration / transcribe_time if transcribe_time > 0 else 0
-            logger.info(
-                "TRANSCRIBED in %.2fs (%.1fx real-time): %s", transcribe_time, rtf, text
-            )
+            logger.info("TRANSCRIBED in %.2fs (%.1fx real-time): %s", transcribe_time, rtf, text)
             output_handler.type_text(text)
             output_handler.log_transcription(text, model_size, transcribe_time)
         else:

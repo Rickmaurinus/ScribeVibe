@@ -1,7 +1,10 @@
 """Interactive microphone selector — saves chosen device ID to settings.json."""
+
 import re
 import sys
+
 import sounddevice as sd
+
 import config
 
 _SKIP_NAMES = {
@@ -64,10 +67,7 @@ def get_clean_mic_list() -> list[tuple[int, str, str]]:
     # Second pass: drop non-MME entries whose name is a longer version of an
     # already-accepted MME entry (MME names are truncated to 31 chars)
     mme_names = [n.lower() for _, n, a in best.values() if a == "MME"]
-    deduped = {
-        k: v for k, v in best.items()
-        if v[2] == "MME" or not any(k.startswith(m) for m in mme_names)
-    }
+    deduped = {k: v for k, v in best.items() if v[2] == "MME" or not any(k.startswith(m) for m in mme_names)}
 
     return sorted(deduped.values(), key=lambda x: x[0])
 

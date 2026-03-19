@@ -2,6 +2,7 @@
 
 Supports hot-swapping models in VRAM via ensure_model().
 """
+
 import gc
 import logging
 import os
@@ -70,7 +71,9 @@ class WhisperEngine:
             cached = not downloading
             logger.info("Loading model '%s' onto GPU (int8_float16)...", model_size)
             self._model = WhisperModel(
-                model_size, device="cuda", compute_type="int8_float16",
+                model_size,
+                device="cuda",
+                compute_type="int8_float16",
                 local_files_only=cached,
             )
             self.current_model = model_size
@@ -81,15 +84,19 @@ class WhisperEngine:
         with self._lock:
             if self._model is None:
                 return
+            assert self.current_model is not None
             dummy_audio = np.zeros(8000, dtype=np.float32)  # 0.5s of silence at 16kHz
             logger.info("CUDA warm-up: running dummy inference...")
             start = time.perf_counter()
             multilingual = not self.current_model.endswith(".en")
             kwargs = {"language": "en"} if multilingual else {}
             segments, _ = self._model.transcribe(
-                dummy_audio, beam_size=1, vad_filter=True,
-                condition_on_previous_text=False, without_timestamps=True,
-                **kwargs
+                dummy_audio,
+                beam_size=1,
+                vad_filter=True,
+                condition_on_previous_text=False,
+                without_timestamps=True,
+                **kwargs,
             )
             # Force evaluation of the generator
             for _ in segments:
@@ -97,21 +104,24 @@ class WhisperEngine:
             elapsed = time.perf_counter() - start
             logger.info("CUDA warm-up complete in %.2fs — first real transcription will be fast.", elapsed)
 
-    def transcribe(self, audio_array: np.ndarray, language: str = "en",
-                    beam_size: int = 2) -> tuple[str, float]:
+    def transcribe(self, audio_array: np.ndarray, language: str = "en", beam_size: int = 2) -> tuple[str, float]:
         """Transcribe a 16 kHz float32 mono array. Returns (text, duration_seconds).
 
         Acquires the model lock so it safely waits for any in-flight
         ensure_model() call to finish before running inference.
         """
         with self._lock:
+            assert self.current_model is not None and self._model is not None
             multilingual = not self.current_model.endswith(".en")
             kwargs = {"language": language} if multilingual else {}
             start_time = time.perf_counter()
             segments, _info = self._model.transcribe(
-                audio_array, beam_size=beam_size, vad_filter=True,
-                condition_on_previous_text=False, without_timestamps=True,
-                **kwargs
+                audio_array,
+                beam_size=beam_size,
+                vad_filter=True,
+                condition_on_previous_text=False,
+                without_timestamps=True,
+                **kwargs,
             )
             text = " ".join(seg.text.strip() for seg in segments if seg.text.strip())
             duration = time.perf_counter() - start_time

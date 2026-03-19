@@ -1,15 +1,21 @@
 """Full-screen fading language indicator overlay (PySide6)."""
-from PySide6.QtCore import (
-    Qt, Signal, QObject, Slot, QPropertyAnimation, QEasingCurve,
-    QPauseAnimation, QSequentialAnimationGroup,
-)
-from PySide6.QtGui import QFont, QScreen
-from PySide6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout
 
+from PySide6.QtCore import (
+    QEasingCurve,
+    QObject,
+    QPauseAnimation,
+    QPropertyAnimation,
+    QSequentialAnimationGroup,
+    Qt,
+    Signal,
+    Slot,
+)
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 
 _FONT_FAMILY = "Segoe UI Semibold"
 _FONT_SIZE = 48
-_HOLD_MS = 400            # hold at full opacity before fading
+_HOLD_MS = 400  # hold at full opacity before fading
 _FADE_DURATION_MS = 1500  # total fade-out time
 _START_OPACITY = 0.92
 
@@ -23,11 +29,7 @@ class _OverlayWidget(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
-        )
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setStyleSheet("background: #1a1a1a; border-radius: 8px;")
 

@@ -5,13 +5,13 @@ Hotkeys:
   Shift+Insert   — switch language (English ↔ Dutch)
   Escape         — abort recording and discard audio
 """
+
 import logging
 
-from transcriber import WhisperEngine
 from key_hook import KeyHook
 from recording_session import RecordingSession
+from transcriber import WhisperEngine
 from transcription_worker import TranscriptionWorker
-from paths import get_resource_path  # re-exported for history_ui.py
 
 logger = logging.getLogger(__name__)
 

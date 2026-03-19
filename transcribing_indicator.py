@@ -1,17 +1,18 @@
 """Animated three-dot overlay shown while transcription is in progress."""
-from PySide6.QtCore import Qt, Signal, QObject, Slot, QPropertyAnimation, QEasingCurve, QPoint, QTimer
+
+from PySide6.QtCore import QEasingCurve, QObject, QPoint, QPropertyAnimation, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QApplication, QWidget, QHBoxLayout, QLabel
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QWidget
 
 # ── constants ────────────────────────────────────────────────────────
-_WIN_W = 114              # wide enough for three spaced dots
+_WIN_W = 114  # wide enough for three spaced dots
 _WIN_H = 52
-_MARGIN_BOTTOM = 40       # matches recording indicator
+_MARGIN_BOTTOM = 40  # matches recording indicator
 _BG_COLOR = "#0a0a0a"
-_DOT_ACTIVE = "#00e5ff"   # same cyan as waveform
-_DOT_DIM = "#0d2a30"      # barely-visible dark teal
-_SLIDE_MS = 280           # slide-in / slide-out duration
-_DOT_STEP_MS = 380        # ms per step in the chaser cycle
+_DOT_ACTIVE = "#00e5ff"  # same cyan as waveform
+_DOT_DIM = "#0d2a30"  # barely-visible dark teal
+_SLIDE_MS = 280  # slide-in / slide-out duration
+_DOT_STEP_MS = 380  # ms per step in the chaser cycle
 
 
 class _Bridge(QObject):
@@ -24,11 +25,7 @@ class TranscribingWidget(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
-        )
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setStyleSheet(f"background: {_BG_COLOR}; border-radius: 12px;")
         self.resize(_WIN_W, _WIN_H)
@@ -113,9 +110,9 @@ class TranscribingWidget(QWidget):
         screen = self.screen() or QApplication.primaryScreen()
         geom = screen.availableGeometry()
         y = geom.y() + geom.height() - self.height() - _MARGIN_BOTTOM
-        left   = QPoint(geom.x() - self.width() - 20, y)
+        left = QPoint(geom.x() - self.width() - 20, y)
         center = QPoint(geom.x() + (geom.width() - self.width()) // 2, y)
-        right  = QPoint(geom.x() + geom.width() + 20, y)
+        right = QPoint(geom.x() + geom.width() + 20, y)
         return left, center, right
 
     def _update_dots(self) -> None:

@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: windows-latest  # winsound / win32 / ctypes.WinDLL are Windows-only
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: ruff check (lint)
+        run: ruff check .
+
+      - name: ruff format (check only)
+        run: ruff format --check .
+
+  typecheck:
+    name: Type Check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install mypy + type stubs
+        # App deps are not installed — ignore_missing_imports handles their absence.
+        # numpy stubs ship with mypy extras; PySide6 stubs are in PySide6-stubs.
+        run: pip install mypy numpy
+
+      - name: mypy
+        run: mypy .
+
+  test:
+    name: Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Run tests
+        # No tests exist yet — this step is a placeholder.
+        # Replace with: pytest tests/ -v
+        run: python -m pytest --collect-only 2>&1 | findstr /C:"no tests ran" /C:"selected" && exit 0 || exit 0

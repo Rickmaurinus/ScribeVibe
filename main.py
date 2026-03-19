@@ -1,4 +1,5 @@
 """ScribeVibe — GPU-accelerated push-to-talk transcription."""
+
 __version__ = "1.0.0"
 
 import ctypes
@@ -17,11 +18,12 @@ except Exception:
 
 import config
 import paths
-from transcriber import WhisperEngine
 from interface import HotkeyListener
 from language_overlay import LanguageOverlay
 from recording_indicator import RecordingIndicator
+from transcriber import WhisperEngine
 from tray_app import TrayApp
+
 
 def _setup_logging() -> None:
     """Configure logging to both console and a rotating log file."""
@@ -30,12 +32,10 @@ def _setup_logging() -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
 
-    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s",
-                            datefmt="%Y-%m-%d %H:%M:%S")
+    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
     # File handler — 1 MB max, keep 1 backup
-    fh = RotatingFileHandler(paths.APP_LOG, maxBytes=1_000_000,
-                             backupCount=1, encoding="utf-8")
+    fh = RotatingFileHandler(paths.APP_LOG, maxBytes=1_000_000, backupCount=1, encoding="utf-8")
     fh.setFormatter(fmt)
     root_logger.addHandler(fh)
 
@@ -60,13 +60,16 @@ def _warmup(engine: WhisperEngine, tray: TrayApp, model_size: str) -> None:
     engine.warmup()
     tray.notify("Model loaded & CUDA warm-up done — ready to transcribe!")
 
+
 def main() -> None:
     _setup_logging()
     logging.info(f"ScribeVibe v{__version__} starting...")
 
     # PySide6 QApplication must live on the main thread
     from PySide6.QtWidgets import QApplication
+
     import history_ui
+
     app = QApplication(sys.argv)
     history_ui.init()  # must be on main thread, after QApplication
 
@@ -83,9 +86,7 @@ def main() -> None:
     lang_overlay = LanguageOverlay()
     lang_overlay.start()
 
-    listener = HotkeyListener(engine=engine, indicator=indicator,
-                              language_overlay=lang_overlay,
-                              notify_fn=tray.notify)
+    listener = HotkeyListener(engine=engine, indicator=indicator, language_overlay=lang_overlay, notify_fn=tray.notify)
     listener.start()
 
     # Eager model load + CUDA warm-up in background

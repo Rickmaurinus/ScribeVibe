@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=70"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "scribevibe"
@@ -25,14 +25,24 @@ dependencies = [
 scribevibe = "main:main"
 scribevibe-select-mic = "select_mic:main"
 
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
 # NOTE: flat layout — all modules live at the project root.
 # A future src/scribevibe/ migration would require updating all imports.
 [tool.setuptools]
 py-modules = [
     "main",
     "config",
+    "paths",
     "transcriber",
     "audio_capture",
+    "key_hook",
+    "recording_session",
+    "transcription_worker",
     "interface",
     "output_handler",
     "tray_app",
@@ -41,3 +51,34 @@ py-modules = [
     "recording_indicator",
     "select_mic",
 ]
+
+# ── ruff ─────────────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# E/W = pycodestyle, F = pyflakes, I = isort, UP = pyupgrade, B = bugbear
+select = ["E", "W", "F", "I", "UP", "B"]
+ignore = [
+    "E501",   # line too long — formatter handles length separately
+    "E741",   # ambiguous variable name (l, O, I) — ctypes code uses these
+    "UP007",  # use X | Y instead of Optional[X] — gradual migration
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "config", "paths", "transcriber", "audio_capture",
+    "key_hook", "recording_session", "transcription_worker",
+    "interface", "output_handler", "tray_app", "history_ui",
+    "language_overlay", "recording_indicator", "select_mic",
+]
+
+# ── mypy ─────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true   # faster-whisper, sounddevice, pywin32 have no stubs
+warn_unused_ignores = true
+# Baseline: check_untyped_defs only; tighten toward disallow_untyped_defs over time
+check_untyped_defs = true
+exclude = ["venv/", "build/", "dist/"]

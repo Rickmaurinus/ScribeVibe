@@ -1,7 +1,9 @@
 """Tests for config.py — settings load/save/cache behaviour."""
+
 import json
-import os
+
 import pytest
+
 import config
 
 

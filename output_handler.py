@@ -1,9 +1,11 @@
 """Handles text output: paste-at-cursor and logging to file."""
+
 import ctypes
 import datetime
 import logging
 import threading
 import time
+
 import win32clipboard
 import win32con
 
@@ -26,15 +28,17 @@ KEYEVENTF_KEYUP = 0x0002
 
 _keybd_event = ctypes.windll.user32.keybd_event
 
+
 def _send_ctrl_v() -> None:
     """Send Ctrl+V via Win32 keybd_event — simple and reliable."""
-    _keybd_event(VK_CONTROL, 0, 0, 0)           # Ctrl down
-    _keybd_event(VK_V, 0, 0, 0)                 # V down
-    _keybd_event(VK_V, 0, KEYEVENTF_KEYUP, 0)   # V up
+    _keybd_event(VK_CONTROL, 0, 0, 0)  # Ctrl down
+    _keybd_event(VK_V, 0, 0, 0)  # V down
+    _keybd_event(VK_V, 0, KEYEVENTF_KEYUP, 0)  # V up
     _keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)  # Ctrl up
 
 
 # ── public API ───────────────────────────────────────────────────────
+
 
 def set_log_hook(callback) -> None:
     global _log_hook
@@ -75,10 +79,8 @@ def copy_to_hidden_clipboard(text: str) -> None:
         win32clipboard.OpenClipboard()
         win32clipboard.EmptyClipboard()
         win32clipboard.SetClipboardText(text, win32con.CF_UNICODETEXT)
-        exclude_format = win32clipboard.RegisterClipboardFormat(
-            "ExcludeClipboardContentFromMonitorProcessing"
-        )
-        win32clipboard.SetClipboardData(exclude_format, b'\x00')
+        exclude_format = win32clipboard.RegisterClipboardFormat("ExcludeClipboardContentFromMonitorProcessing")
+        win32clipboard.SetClipboardData(exclude_format, b"\x00")
     except Exception:
         logger.exception("Failed to write to clipboard")
     finally:
@@ -122,7 +124,7 @@ def delete_log_entry(ts: str, meta: str, text: str) -> None:
         target = f"[{ts}] {text}"
     with _file_lock:
         try:
-            with open(LOG_FILE, "r", encoding="utf-8") as f:
+            with open(LOG_FILE, encoding="utf-8") as f:
                 lines = f.readlines()
             found = False
             with open(LOG_FILE, "w", encoding="utf-8") as f:
@@ -138,7 +140,7 @@ def delete_log_entry(ts: str, meta: str, text: str) -> None:
 def _trim_log() -> None:
     """Keep only the most recent entries if the log exceeds the limit."""
     try:
-        with open(LOG_FILE, "r", encoding="utf-8") as f:
+        with open(LOG_FILE, encoding="utf-8") as f:
             lines = f.readlines()
         if len(lines) > _MAX_LOG_ENTRIES:
             with open(LOG_FILE, "w", encoding="utf-8") as f:

@@ -1,11 +1,12 @@
 """Transcription history viewer for ScribeVibe — QWebEngine edition."""
+
 import json
 import re
 
-from PySide6.QtCore import QObject, Signal, Slot, QUrl, QTimer
-from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtCore import QObject, QTimer, QUrl, Signal, Slot
 from PySide6.QtWebChannel import QWebChannel
-from PySide6.QtWidgets import QMainWindow, QApplication
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import QMainWindow
 
 import output_handler
 
@@ -20,22 +21,25 @@ _ENTRY_RE = re.compile(
 
 # ── log parsing ───────────────────────────────────────────────────────
 
+
 def _parse_log() -> list[dict]:
     """Return [{ts, meta, text}, ...] newest first."""
     entries = []
     try:
-        with open(output_handler.LOG_FILE, "r", encoding="utf-8") as f:
+        with open(output_handler.LOG_FILE, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
                     continue
                 m = _ENTRY_RE.match(line)
                 if m:
-                    entries.append({
-                        "ts": m.group(1),
-                        "meta": m.group(2) or "",
-                        "text": m.group(3),
-                    })
+                    entries.append(
+                        {
+                            "ts": m.group(1),
+                            "meta": m.group(2) or "",
+                            "text": m.group(3),
+                        }
+                    )
     except FileNotFoundError:
         pass
     entries.reverse()
@@ -44,8 +48,10 @@ def _parse_log() -> list[dict]:
 
 # ── JS bridge ─────────────────────────────────────────────────────────
 
+
 class _HistoryBridge(QObject):
     """Exposed to JavaScript via QWebChannel as 'api'."""
+
     newEntry = Signal(str)  # JSON string pushed to JS
 
     @Slot(str, str, str, result=str)
@@ -65,6 +71,7 @@ class _HistoryBridge(QObject):
 
 
 # ── Window ────────────────────────────────────────────────────────────
+
 
 class _HistoryWindow(QMainWindow):
     def __init__(self):
@@ -103,6 +110,7 @@ class _HistoryWindow(QMainWindow):
 
     def _mark_dirty(self, ts: str, meta: str, text: str):
         """Lightweight log hook — just flags that entries changed while hidden."""
+        assert _manager is not None
         _manager._dirty = True
 
     def closeEvent(self, event):
@@ -112,6 +120,7 @@ class _HistoryWindow(QMainWindow):
 
 
 # ── Manager (thread-safe show/hide) ──────────────────────────────────
+
 
 class _HistoryManager(QObject):
     _show_signal = Signal()
@@ -172,6 +181,7 @@ def show_history() -> None:
 def _load_html() -> str:
     """Load the history UI HTML from the assets directory."""
     from paths import get_resource_path
+
     path = get_resource_path("assets/history.html")
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return f.read()

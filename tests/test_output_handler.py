@@ -1,6 +1,9 @@
 """Tests for output_handler.py — log writing, trimming, deletion."""
+
 import threading
+
 import pytest
+
 import output_handler
 
 
@@ -17,13 +20,13 @@ def _isolate_log(tmp_path, monkeypatch):
 
 
 def _read_log() -> str:
-    with open(output_handler.LOG_FILE, "r", encoding="utf-8") as f:
+    with open(output_handler.LOG_FILE, encoding="utf-8") as f:
         return f.read()
 
 
 def _read_lines() -> list[str]:
     try:
-        with open(output_handler.LOG_FILE, "r", encoding="utf-8") as f:
+        with open(output_handler.LOG_FILE, encoding="utf-8") as f:
             return [line.rstrip("\n") for line in f if line.strip()]
     except FileNotFoundError:
         return []
@@ -130,6 +133,7 @@ class TestDeleteLogEntry:
         # Parse the middle entry to get exact ts and meta
         # Format: [ts] [meta] text
         import re
+
         m = re.match(r"^\[(.+?)\] \[(.+?)\] (.+)$", lines[1])
         assert m is not None
         output_handler.delete_log_entry(m.group(1), m.group(2), m.group(3))
@@ -145,7 +149,9 @@ class TestDeleteLogEntry:
         lines = _read_lines()
 
         import re
+
         m = re.match(r"^\[(.+?)\] \[(.+?)\] (.+)$", lines[0])
+        assert m is not None
         output_handler.delete_log_entry(m.group(1), m.group(2), m.group(3))
 
         remaining = _read_lines()

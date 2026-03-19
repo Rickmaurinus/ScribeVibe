@@ -1,33 +1,41 @@
 """Tests for select_mic.py — junk filtering and deduplication logic."""
-import pytest
-from unittest.mock import patch
-from select_mic import _is_junk, get_clean_mic_list
 
+from unittest.mock import patch
+
+import pytest
+
+from select_mic import _is_junk, get_clean_mic_list
 
 # ── _is_junk() ────────────────────────────────────────────────────────
 
 
 class TestIsJunk:
-    @pytest.mark.parametrize("name", [
-        "Microsoft Sound Mapper - Input",
-        "Primary Sound Capture Driver",
-        "PC Speaker",
-        "Stereo Mix (Realtek Audio)",
-        "Something with SST",
-        "Chat Mic (Chat Mic)",               # WASAPI alias
-        "Headset (Headset)",                  # WASAPI alias
-        "@System32\\drivers\\something",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "Microsoft Sound Mapper - Input",
+            "Primary Sound Capture Driver",
+            "PC Speaker",
+            "Stereo Mix (Realtek Audio)",
+            "Something with SST",
+            "Chat Mic (Chat Mic)",  # WASAPI alias
+            "Headset (Headset)",  # WASAPI alias
+            "@System32\\drivers\\something",
+        ],
+    )
     def test_junk_names_filtered(self, name):
         assert _is_junk(name) is True
 
-    @pytest.mark.parametrize("name", [
-        "Blue Yeti Stereo",
-        "Microphone (Realtek Audio)",
-        "Rode NT-USB",
-        "GoXLR (Chat)",                       # not WASAPI alias pattern
-        "USB Audio Device",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "Blue Yeti Stereo",
+            "Microphone (Realtek Audio)",
+            "Rode NT-USB",
+            "GoXLR (Chat)",  # not WASAPI alias pattern
+            "USB Audio Device",
+        ],
+    )
     def test_valid_names_kept(self, name):
         assert _is_junk(name) is False
 
@@ -110,7 +118,7 @@ class TestGetCleanMicList:
     def test_mme_truncation_dedup(self):
         """MME truncates names to 31 chars. Longer WASAPI names that start
         with the same prefix should be deduplicated."""
-        mme_name = "Microphone (Realtek HD Audio)"   # 30 chars — fits MME
+        mme_name = "Microphone (Realtek HD Audio)"  # 30 chars — fits MME
         wasapi_name = "Microphone (Realtek HD Audio) Extra Info"
         devices = [
             _make_device(mme_name, 1, hostapi=0),

@@ -1,6 +1,6 @@
 """Tests for transcriber.py — model loading, hot-swap, and transcription logic."""
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest

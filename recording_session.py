@@ -36,7 +36,7 @@ class RecordingSession:
         self._notify_fn = notify_fn
         self._on_task_ready = on_task_ready
 
-        self._recorder = AudioRecorder()
+        self._recorder = AudioRecorder(on_error=self._on_mic_error)
         self.is_recording = False
         self._active_language = LANGUAGE_CYCLE[0]
         self._active_model_size = LANGUAGES[self._active_language].default_model
@@ -116,9 +116,9 @@ class RecordingSession:
 
         try:
             self._recorder.start_recording(device_id)
-        except RuntimeError as e:
+        except (RuntimeError, sd.PortAudioError) as e:
             self.is_recording = False
-            msg = f"Microphone error: {e}"
+            msg = f"Cannot open microphone — right-click the tray icon to select a different one.\n\nDetail: {e}"
             logger.error(msg)
             if self._notify_fn:
                 self._notify_fn(msg, title="ScribeVibe — Error")
@@ -159,7 +159,15 @@ class RecordingSession:
                 }
             )
 
+    def _on_mic_error(self, message: str) -> None:
+        logger.warning("Mic error: %s", message)
+        if self._notify_fn and self.is_recording:
+            self._notify_fn(message, title="ScribeVibe — Mic Error")
+
     def _log_start(self, device_id, lang_code, model) -> None:
         lang_name = LANGUAGES[lang_code].name.upper()
-        mic_name = sd.query_devices(device_id)["name"] if device_id is not None else "default"
+        try:
+            mic_name = sd.query_devices(device_id)["name"] if device_id is not None else "default"
+        except Exception:
+            mic_name = f"device #{device_id} (disconnected)"
         logger.info("RECORDING (%s) — Model: %s — Mic: %s", lang_name, model, mic_name)

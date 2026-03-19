@@ -125,8 +125,13 @@ class TrayApp:
     def __init__(self, engine=None) -> None:
         self._tray: QSystemTrayIcon | None = None
         self._engine = engine
+        self._hook = None  # set via set_hook() before or after setup()
         self._bridge = _NotifyBridge()
         self._bridge.notify_signal.connect(self._do_notify)
+
+    def set_hook(self, hook) -> None:
+        """Provide the KeyHook instance so Settings can update hotkeys."""
+        self._hook = hook
 
     # ── mic switching ───────────────────────────────────────────────
 
@@ -210,6 +215,9 @@ class TrayApp:
         history_action = menu.addAction("History...")
         history_action.triggered.connect(lambda: show_history())
 
+        settings_action = menu.addAction("Settings...")
+        settings_action.triggered.connect(self._open_settings)
+
         self._autostart_action = QAction("Start with Windows", menu)
         self._autostart_action.setCheckable(True)
         self._autostart_action.setChecked(_is_autostart_enabled())
@@ -221,6 +229,11 @@ class TrayApp:
         quit_action.triggered.connect(self._quit)
 
         return menu
+
+    def _open_settings(self) -> None:
+        if self._hook is not None:
+            from settings_ui import show_settings
+            show_settings(self._hook)
 
     # ── lifecycle ───────────────────────────────────────────────────
 

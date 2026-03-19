@@ -1,13 +1,14 @@
 """Global hotkey listener for ScribeVibe.
 
-Hotkeys:
+Hotkeys are user-configurable via settings_ui.  Defaults:
   Insert         — toggle recording
   Shift+Insert   — switch language (English ↔ Dutch)
-  Escape         — abort recording and discard audio
+  Escape         — abort recording and discard audio (hardcoded)
 """
 
 import logging
 
+import config
 from key_hook import KeyHook
 from recording_session import RecordingSession
 from transcriber import WhisperEngine
@@ -25,9 +26,8 @@ class HotkeyListener:
         indicator=None,
         language_overlay=None,
         notify_fn=None,
-        transcribing_indicator=None,
     ) -> None:
-        self._worker = TranscriptionWorker(engine, notify_fn=notify_fn, transcribing_indicator=transcribing_indicator)
+        self._worker = TranscriptionWorker(engine, notify_fn=notify_fn)
         self._session = RecordingSession(
             engine=engine,
             indicator=indicator,
@@ -35,11 +35,18 @@ class HotkeyListener:
             notify_fn=notify_fn,
             on_task_ready=self._worker.submit,
         )
+        cfg = config.load()
         self._hook = KeyHook(
             on_record_toggle=self._session.toggle,
             on_language_switch=self._session.switch_language,
             on_abort=self._session.abort,
+            record_hotkey=cfg.get("hotkey_record"),
+            language_hotkey=cfg.get("hotkey_language"),
         )
+
+    @property
+    def hook(self) -> KeyHook:
+        return self._hook
 
     @property
     def is_recording(self) -> bool:

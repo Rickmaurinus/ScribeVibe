@@ -45,7 +45,6 @@ def patch_deps(monkeypatch, mock_recorder):
     monkeypatch.setattr(rs, "AudioRecorder", lambda: mock_recorder)
     monkeypatch.setattr(rs.config, "load", lambda: dict(_CFG))
     monkeypatch.setattr(rs, "get_resource_path", lambda p: p)
-    monkeypatch.setattr(rs, "_play", MagicMock())
     monkeypatch.setattr(rs.threading, "Thread", _SyncThread)
 
 

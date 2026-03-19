@@ -22,7 +22,6 @@ from interface import HotkeyListener
 from languages import LANGUAGE_CYCLE, LANGUAGES
 from language_overlay import LanguageOverlay
 from recording_indicator import RecordingIndicator
-from transcribing_indicator import TranscribingIndicator
 from transcriber import WhisperEngine
 from tray_app import TrayApp
 
@@ -73,6 +72,7 @@ def main() -> None:
     import history_ui
 
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)  # tray app must survive all windows closing
     history_ui.init()  # must be on main thread, after QApplication
 
     cfg = config.load()
@@ -81,12 +81,10 @@ def main() -> None:
     tray = TrayApp(engine=engine)
     tray.setup()  # must be called on the main Qt thread
     engine.set_notify_fn(tray.notify)
+    app.aboutToQuit.connect(engine.unload)
 
     indicator = RecordingIndicator()
     indicator.create_widget()  # must be called after QApplication exists
-
-    transcribing_indicator = TranscribingIndicator()
-    transcribing_indicator.create_widget()  # must be called after QApplication exists
 
     lang_overlay = LanguageOverlay()
     lang_overlay.start()
@@ -96,8 +94,8 @@ def main() -> None:
         indicator=indicator,
         language_overlay=lang_overlay,
         notify_fn=tray.notify,
-        transcribing_indicator=transcribing_indicator,
     )
+    tray.set_hook(listener.hook)
     listener.start()
 
     # Eager model load + CUDA warm-up in background (default language = first in cycle)

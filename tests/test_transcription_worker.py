@@ -46,7 +46,7 @@ class TestShortAudio:
         worker = _make_worker(engine)
         task = {"raw": _make_raw(100), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound"), patch(
+        with patch("audio_utils.winsound.PlaySound"), patch(
             "transcription_worker.output_handler.type_text"
         ) as mock_type:
             _run(worker, task)
@@ -58,7 +58,7 @@ class TestShortAudio:
         worker = _make_worker()
         task = {"raw": _make_raw(100), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound") as mock_play:
+        with patch("audio_utils.winsound.PlaySound") as mock_play:
             _run(worker, task)
 
         mock_play.assert_called_once()
@@ -73,7 +73,7 @@ class TestSuccessfulTranscription:
         worker = _make_worker(engine)
         task = {"raw": _make_raw(16_000), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound"), patch(
+        with patch("audio_utils.winsound.PlaySound"), patch(
             "transcription_worker.output_handler.type_text"
         ) as mock_type, patch(
             "transcription_worker.output_handler.log_transcription"
@@ -89,7 +89,7 @@ class TestSuccessfulTranscription:
         worker = _make_worker(engine)
         task = {"raw": _make_raw(16_000), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound"), patch(
+        with patch("audio_utils.winsound.PlaySound"), patch(
             "transcription_worker.output_handler.type_text"
         ), patch("transcription_worker.output_handler.log_transcription"), patch(
             "transcription_worker.config.load", return_value={"beam_size": 2}
@@ -118,7 +118,7 @@ class TestSuccessfulTranscription:
         worker = _make_worker(engine)
         task = {"raw": _make_raw(16_000), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound") as mock_play, patch(
+        with patch("audio_utils.winsound.PlaySound") as mock_play, patch(
             "transcription_worker.output_handler.type_text"
         ), patch("transcription_worker.output_handler.log_transcription"), patch(
             "transcription_worker.config.load", return_value={"beam_size": 2}
@@ -133,7 +133,7 @@ class TestSuccessfulTranscription:
         worker = _make_worker(engine)
         task = {"raw": _make_raw(16_000), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound"), patch(
+        with patch("audio_utils.winsound.PlaySound"), patch(
             "transcription_worker.output_handler.type_text"
         ), patch("transcription_worker.output_handler.log_transcription"), patch(
             "transcription_worker.config.load", return_value={"beam_size": 4}
@@ -149,7 +149,7 @@ class TestSuccessfulTranscription:
         worker = _make_worker(engine)
         task = {"raw": _make_raw(16_000), "lang": "nl", "model_size": "small"}
 
-        with patch("transcription_worker.winsound.PlaySound"), patch(
+        with patch("audio_utils.winsound.PlaySound"), patch(
             "transcription_worker.output_handler.type_text"
         ), patch("transcription_worker.output_handler.log_transcription"), patch(
             "transcription_worker.config.load", return_value={"beam_size": 2}
@@ -170,7 +170,7 @@ class TestEmptyTranscription:
         worker = _make_worker(engine)
         task = {"raw": _make_raw(16_000), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound"), patch(
+        with patch("audio_utils.winsound.PlaySound"), patch(
             "transcription_worker.output_handler.type_text"
         ) as mock_type, patch(
             "transcription_worker.config.load", return_value={"beam_size": 2}
@@ -186,7 +186,7 @@ class TestEmptyTranscription:
         worker = _make_worker(engine, notify_fn=lambda msg, **kw: notes.append(msg))
         task = {"raw": _make_raw(16_000), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound"), patch(
+        with patch("audio_utils.winsound.PlaySound"), patch(
             "transcription_worker.output_handler.type_text"
         ), patch("transcription_worker.config.load", return_value={"beam_size": 2}):
             _run(worker, task)
@@ -199,7 +199,7 @@ class TestEmptyTranscription:
         worker = _make_worker(engine)
         task = {"raw": _make_raw(16_000), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound") as mock_play, patch(
+        with patch("audio_utils.winsound.PlaySound") as mock_play, patch(
             "transcription_worker.output_handler.type_text"
         ), patch("transcription_worker.config.load", return_value={"beam_size": 2}):
             _run(worker, task)
@@ -218,7 +218,7 @@ class TestTranscriptionError:
         worker = _make_worker(engine, notify_fn=lambda msg, **kw: notes.append(msg))
         task = {"raw": _make_raw(16_000), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound"), patch(
+        with patch("audio_utils.winsound.PlaySound"), patch(
             "transcription_worker.config.load", return_value={"beam_size": 2}
         ):
             _run(worker, task)
@@ -231,7 +231,7 @@ class TestTranscriptionError:
         worker = _make_worker(engine)
         task = {"raw": _make_raw(16_000), "lang": "en", "model_size": "small.en"}
 
-        with patch("transcription_worker.winsound.PlaySound") as mock_play, patch(
+        with patch("audio_utils.winsound.PlaySound") as mock_play, patch(
             "transcription_worker.config.load", return_value={"beam_size": 2}
         ):
             _run(worker, task)
@@ -252,7 +252,7 @@ class TestTranscriptionError:
         engine.transcribe.side_effect = flaky
         worker = _make_worker(engine)
 
-        with patch("transcription_worker.winsound.PlaySound"), patch(
+        with patch("audio_utils.winsound.PlaySound"), patch(
             "transcription_worker.output_handler.type_text"
         ) as mock_type, patch(
             "transcription_worker.output_handler.log_transcription"
@@ -281,7 +281,7 @@ class TestQueueOrdering:
         engine.transcribe.side_effect = record_lang
         worker = _make_worker(engine)
 
-        with patch("transcription_worker.winsound.PlaySound"), patch(
+        with patch("audio_utils.winsound.PlaySound"), patch(
             "transcription_worker.output_handler.type_text"
         ), patch("transcription_worker.output_handler.log_transcription"), patch(
             "transcription_worker.config.load", return_value={"beam_size": 2}

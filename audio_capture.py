@@ -3,6 +3,7 @@
 import collections
 import logging
 import threading
+from collections.abc import Callable
 
 import numpy as np
 import sounddevice as sd
@@ -21,7 +22,7 @@ FALLBACK_RATE = 48000
 class AudioRecorder:
     """Keeps the mic stream open permanently; start/stop just flips a flag."""
 
-    def __init__(self) -> None:
+    def __init__(self, on_error: Callable[[str], None] | None = None) -> None:
         self._buffer: collections.deque[np.ndarray] = collections.deque()
         self._capturing = threading.Event()
         self._stream: sd.InputStream | None = None
@@ -29,6 +30,8 @@ class AudioRecorder:
         self._needs_resample: bool = False
         self._current_device: int | None = None
         self._live_callback = None
+        self._on_error = on_error
+        self._error_notified: bool = False  # one-shot guard — GIL makes bool assignment atomic
 
     def set_live_callback(self, fn) -> None:
         """Set (or clear with None) the callback invoked with each captured chunk."""
@@ -45,6 +48,16 @@ class AudioRecorder:
         self._current_device = device_id
 
         def _callback(indata, frames, time_info, status):
+            if status:
+                if not self._error_notified:
+                    self._error_notified = True
+                    if self._on_error:
+                        self._on_error(
+                            "Microphone disconnected during recording — "
+                            "right-click the tray icon to select a different one."
+                        )
+                return  # don't append potentially corrupt/empty chunk
+
             if self._capturing.is_set():
                 chunk = indata.copy()
                 self._buffer.append(chunk)
@@ -64,6 +77,7 @@ class AudioRecorder:
                 callback=_callback,
             )
             self._stream.start()
+            self._error_notified = False
             self._stream_rate = TARGET_SAMPLE_RATE
             self._needs_resample = False
             logger.info("Mic stream opened at native 16 kHz — no resampling needed.")
@@ -78,24 +92,34 @@ class AudioRecorder:
                 self._stream = None
 
         # Fallback: open at 48 kHz, resample later with soxr
-        device_info = sd.query_devices(device_id if device_id is not None else sd.default.device[0])
-        self._stream = sd.InputStream(
-            samplerate=FALLBACK_RATE,
-            channels=CHANNELS,
-            dtype=DTYPE,
-            device=device_id,
-            callback=_callback,
-        )
         try:
+            device_info = sd.query_devices(device_id if device_id is not None else sd.default.device[0])
+            device_name = device_info["name"]
+        except Exception:
+            device_name = f"device #{device_id}"
+
+        try:
+            self._stream = sd.InputStream(
+                samplerate=FALLBACK_RATE,
+                channels=CHANNELS,
+                dtype=DTYPE,
+                device=device_id,
+                callback=_callback,
+            )
             self._stream.start()
-        except sd.PortAudioError as e:
-            self._stream.close()
-            self._stream = None
+        except (sd.PortAudioError, ValueError) as e:
+            if self._stream is not None:
+                try:
+                    self._stream.close()
+                except Exception:
+                    pass
+                self._stream = None
             raise RuntimeError(
-                f"Cannot open device {device_id} ({device_info['name']}): {e}\n"
+                f"Cannot open device {device_id} ({device_name}): {e}\n"
                 "Run select_mic.py to choose a different microphone."
             ) from e
 
+        self._error_notified = False
         self._stream_rate = FALLBACK_RATE
         self._needs_resample = True
         logger.info("Mic stream opened at 48 kHz — will resample to 16 kHz via soxr.")
@@ -110,8 +134,8 @@ class AudioRecorder:
 
     def start_recording(self, device_id: int | None = None) -> None:
         """Begin capturing audio. Opens stream if needed."""
-        # Re-open stream only if device changed or not yet open
-        if self._stream is None or self._current_device != device_id:
+        # Re-open stream if device changed, not yet open, or stream died (e.g. mic disconnect)
+        if self._stream is None or self._current_device != device_id or not self._stream.active:
             self.open_stream(device_id)
 
         self._buffer.clear()

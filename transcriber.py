@@ -79,6 +79,17 @@ class WhisperEngine:
             self.current_model = model_size
             logger.info("Model ready.")
 
+    def unload(self) -> None:
+        """Release the loaded model from VRAM."""
+        with self._lock:
+            if self._model is not None:
+                logger.info("Unloading '%s' from GPU on shutdown...", self.current_model)
+                del self._model
+                self._model = None
+                self.current_model = None
+                gc.collect()
+                torch.cuda.empty_cache()
+
     def warmup(self) -> None:
         """Run a dummy inference to trigger PyTorch/CUDA JIT compilation."""
         with self._lock:

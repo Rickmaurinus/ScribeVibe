@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 LOG_FILE = paths.LOG_FILE
 
 _paste_lock = threading.Lock()
+_log_lock = threading.Lock()
 
 _log_hook = None  # optional callback(ts, meta, text) set by history_ui
 
@@ -42,11 +43,12 @@ def _send_ctrl_v() -> None:
 
 def set_log_hook(callback) -> None:
     global _log_hook
-    _log_hook = callback
+    with _log_lock:
+        _log_hook = callback
 
 
-def _wait_clipboard_ready(expected: str, timeout_ms: int = 50) -> None:
-    """Poll until clipboard contains the expected text, or timeout."""
+def _wait_clipboard_ready(expected: str, timeout_ms: int = 50) -> bool:
+    """Poll until clipboard contains the expected text, or timeout. Returns True on success."""
     deadline = time.perf_counter() + timeout_ms / 1000
     while time.perf_counter() < deadline:
         try:
@@ -54,7 +56,7 @@ def _wait_clipboard_ready(expected: str, timeout_ms: int = 50) -> None:
             data = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
             win32clipboard.CloseClipboard()
             if data == expected:
-                return
+                return True
         except Exception:
             try:
                 win32clipboard.CloseClipboard()
@@ -62,6 +64,7 @@ def _wait_clipboard_ready(expected: str, timeout_ms: int = 50) -> None:
                 pass  # CloseClipboard cleanup — nothing to do if it fails
             logger.debug("Clipboard not ready yet (locked or unavailable), retrying...")
         time.sleep(0.002)
+    return False
 
 
 def type_text(text: str) -> None:
@@ -69,7 +72,8 @@ def type_text(text: str) -> None:
     with _paste_lock:
         content = text.strip() + " "
         copy_to_hidden_clipboard(content)
-        _wait_clipboard_ready(content)
+        if not _wait_clipboard_ready(content):
+            logger.warning("Clipboard content was overwritten before paste — transcription may be lost")
         _send_ctrl_v()
 
 
@@ -106,8 +110,10 @@ def log_transcription(text: str, model_name: str = "", transcription_time: float
             _log_count = 0
             _trim_log()
 
-    if _log_hook:
-        _log_hook(timestamp, meta, text)
+    with _log_lock:
+        hook = _log_hook
+    if hook:
+        hook(timestamp, meta, text)
 
 
 def clear_log() -> None:

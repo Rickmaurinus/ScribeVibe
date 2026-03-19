@@ -171,7 +171,7 @@ def show_history() -> None:
 
 def _load_html() -> str:
     """Load the history UI HTML from the assets directory."""
-    from interface import get_resource_path
+    from paths import get_resource_path
     path = get_resource_path("assets/history.html")
     with open(path, "r", encoding="utf-8") as f:
         return f.read()

@@ -56,7 +56,7 @@ def _setup_logging() -> None:
 def _warmup(engine: WhisperEngine, tray: TrayApp, model_size: str) -> None:
     """Background: load the default model and run a CUDA warm-up pass."""
     engine.ensure_model(model_size)
-    engine.warmup()No, no. 
+    engine.warmup()
     tray.notify("Model loaded & CUDA warm-up done — ready to transcribe!")
 
 

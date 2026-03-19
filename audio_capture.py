@@ -1,4 +1,7 @@
 """Always-on audio capture — stream stays open, recording toggles a flag."""
+import collections
+import threading
+
 import numpy as np
 import sounddevice as sd
 import soxr
@@ -15,8 +18,8 @@ class AudioRecorder:
     """Keeps the mic stream open permanently; start/stop just flips a flag."""
 
     def __init__(self) -> None:
-        self._buffer: list[np.ndarray] = []
-        self._capturing = False
+        self._buffer: collections.deque[np.ndarray] = collections.deque()
+        self._capturing = threading.Event()
         self._stream: sd.InputStream | None = None
         self._stream_rate: int = TARGET_SAMPLE_RATE
         self._needs_resample: bool = False
@@ -34,7 +37,7 @@ class AudioRecorder:
         self._current_device = device_id
 
         def _callback(indata, frames, time_info, status):
-            if self._capturing:
+            if self._capturing.is_set():
                 chunk = indata.copy()
                 self._buffer.append(chunk)
                 if self._live_callback is not None:
@@ -106,21 +109,22 @@ class AudioRecorder:
             self.open_stream(device_id)
 
         self._buffer.clear()
-        self._capturing = True
+        self._capturing.set()
 
     def stop_recording_raw(self) -> dict:
         """Stop capturing and return raw buffer — fast, no processing.
 
         Stream stays open for the next recording.
         """
-        self._capturing = False
+        self._capturing.clear()
 
+        old_buffer = self._buffer
+        self._buffer = collections.deque()  # swap — worker holds the old reference
         raw = {
-            "chunks": self._buffer,
+            "chunks": old_buffer,
             "needs_resample": self._needs_resample,
             "stream_rate": self._stream_rate,
         }
-        self._buffer = []  # swap — worker holds the old reference
         return raw
 
     def stop_recording(self) -> np.ndarray:

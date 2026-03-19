@@ -25,8 +25,9 @@ class HotkeyListener:
         indicator=None,
         language_overlay=None,
         notify_fn=None,
+        transcribing_indicator=None,
     ) -> None:
-        self._worker = TranscriptionWorker(engine, notify_fn=notify_fn)
+        self._worker = TranscriptionWorker(engine, notify_fn=notify_fn, transcribing_indicator=transcribing_indicator)
         self._session = RecordingSession(
             engine=engine,
             indicator=indicator,

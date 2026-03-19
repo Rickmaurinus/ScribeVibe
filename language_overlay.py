@@ -1,5 +1,6 @@
 """Full-screen fading language indicator overlay (PySide6)."""
 
+from languages import LANGUAGES
 from PySide6.QtCore import (
     QEasingCurve,
     QObject,
@@ -69,7 +70,7 @@ class _OverlayWidget(QWidget):
     def _do_show(self, language: str) -> None:
         self._group.stop()
 
-        text = "English" if language == "en" else "Dutch"
+        text = LANGUAGES[language].name
         self._label.setText(text)
         self.adjustSize()
 

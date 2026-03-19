@@ -18,8 +18,12 @@ def get_resource_path(relative_path: str) -> str:
 
 # %APPDATA%\ScribeVibe — falls back to ~ if APPDATA is unset
 APP_DIR: Path = Path(os.environ.get("APPDATA", Path.home())) / "ScribeVibe"
-APP_DIR.mkdir(parents=True, exist_ok=True)
 
 SETTINGS_FILE: Path = APP_DIR / "settings.json"
 LOG_FILE: Path = APP_DIR / "transcription_log.txt"
 APP_LOG: Path = APP_DIR / "scribevibe.log"
+
+
+def ensure_app_dir() -> None:
+    """Create the app data directory. Call once at startup before any file I/O."""
+    APP_DIR.mkdir(parents=True, exist_ok=True)

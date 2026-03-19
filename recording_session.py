@@ -10,6 +10,7 @@ import sounddevice as sd
 
 import config
 from audio_capture import AudioRecorder
+from languages import LANGUAGE_CYCLE, LANGUAGES
 from paths import get_resource_path
 
 logger = logging.getLogger(__name__)
@@ -41,8 +42,8 @@ class RecordingSession:
 
         self._recorder = AudioRecorder()
         self.is_recording = False
-        self._active_language = "en"
-        self._active_model_size = "small.en"
+        self._active_language = LANGUAGE_CYCLE[0]
+        self._active_model_size = LANGUAGES[self._active_language].default_model
         self._last_toggle = 0.0  # monotonic timestamp — debounce guard
 
         cfg = config.load()
@@ -76,21 +77,16 @@ class RecordingSession:
             self._stop()
 
     def switch_language(self) -> None:
-        """Toggle between English and Dutch, show overlay, preload model."""
+        """Cycle to the next language, show overlay, preload model."""
         if self.is_recording:
             return
 
         cfg = config.load()
-        if self._active_language == "en":
-            self._active_language = "nl"
-            model_key, fallback = "model_size_nl", "small"
-        else:
-            self._active_language = "en"
-            model_key, fallback = "model_size_en", "small.en"
-
-        self._active_model_size = cfg.get(model_key, fallback)
-        label = "ENGLISH" if self._active_language == "en" else "DUTCH"
-        logger.info("Language switched to %s — Model: %s", label, self._active_model_size)
+        idx = LANGUAGE_CYCLE.index(self._active_language)
+        self._active_language = LANGUAGE_CYCLE[(idx + 1) % len(LANGUAGE_CYCLE)]
+        lang = LANGUAGES[self._active_language]
+        self._active_model_size = cfg.get(lang.config_key, lang.default_model)
+        logger.info("Language switched to %s — Model: %s", lang.name.upper(), self._active_model_size)
 
         if self._language_overlay:
             self._language_overlay.show(self._active_language)
@@ -117,8 +113,8 @@ class RecordingSession:
     def _start(self) -> None:
         cfg = config.load()
         device_id = cfg.get("device_id")
-        model_key = "model_size_en" if self._active_language == "en" else "model_size_nl"
-        self._active_model_size = cfg.get(model_key, "small.en" if self._active_language == "en" else "small")
+        lang = LANGUAGES[self._active_language]
+        self._active_model_size = cfg.get(lang.config_key, lang.default_model)
 
         _play(self._snd_start)
 
@@ -167,7 +163,7 @@ class RecordingSession:
                 }
             )
 
-    def _log_start(self, device_id, lang, model) -> None:
-        label = "ENGLISH" if lang == "en" else "DUTCH"
+    def _log_start(self, device_id, lang_code, model) -> None:
+        lang_name = LANGUAGES[lang_code].name.upper()
         mic_name = sd.query_devices(device_id)["name"] if device_id is not None else "default"
-        logger.info("RECORDING (%s) — Model: %s — Mic: %s", label, model, mic_name)
+        logger.info("RECORDING (%s) — Model: %s — Mic: %s", lang_name, model, mic_name)

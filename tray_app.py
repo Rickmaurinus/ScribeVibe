@@ -13,7 +13,9 @@ from PySide6.QtGui import QAction, QActionGroup, QIcon, QImage, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 import config
+from _version import __version__
 from history_ui import show_history
+from languages import LANGUAGE_CYCLE, LANGUAGES, Language
 from select_mic import get_clean_mic_list
 
 logger = logging.getLogger(__name__)
@@ -55,23 +57,6 @@ def _set_autostart(enabled: bool) -> None:
     except OSError as e:
         logger.error("Registry error: %s", e)
 
-
-# ── Model definitions ───────────────────────────────────────────────
-
-EN_MODELS = [
-    ("base.en", "Base (EN)"),
-    ("small.en", "Small (EN)"),
-    ("medium.en", "Medium (EN)"),
-    ("Systran/faster-distil-whisper-medium.en", "Distil-Medium (EN)"),
-    ("Systran/faster-distil-whisper-large-v3", "Distil-Large-v3 (EN)"),
-]
-
-NL_MODELS = [
-    ("base", "Base"),
-    ("small", "Small"),
-    ("medium", "Medium"),
-    ("deepdml/faster-whisper-large-v3-turbo-ct2", "Large-v3-Turbo"),
-]
 
 # ── Menu stylesheet ─────────────────────────────────────────────────
 
@@ -176,9 +161,10 @@ class TrayApp:
 
     # ── model switching ─────────────────────────────────────────────
 
-    def _switch_en(self, model_size: str) -> None:
-        old_model = config.load().get("model_size_en")
-        config.set_model_size_en(model_size)
+    def _switch_model(self, lang_code: str, model_size: str) -> None:
+        lang = LANGUAGES[lang_code]
+        old_model = config.load().get(lang.config_key)
+        config.set_model_size(lang_code, model_size)
         if self._engine and self._engine.current_model == old_model:
             threading.Thread(
                 target=self._engine.ensure_model,
@@ -186,44 +172,18 @@ class TrayApp:
                 daemon=True,
             ).start()
 
-    def _switch_nl(self, model_size: str) -> None:
-        old_model = config.load().get("model_size_nl")
-        config.set_model_size_nl(model_size)
-        if self._engine and self._engine.current_model == old_model:
-            threading.Thread(
-                target=self._engine.ensure_model,
-                args=(model_size,),
-                daemon=True,
-            ).start()
-
-    def _build_en_menu(self, parent: QMenu) -> QMenu:
-        menu = QMenu("English Model", parent)
+    def _build_lang_menu(self, lang: Language, parent: QMenu) -> QMenu:
+        menu = QMenu(f"{lang.name} Model", parent)
         menu.setStyleSheet(_MENU_STYLE)
         group = QActionGroup(menu)
         group.setExclusive(True)
-        current = config.load().get("model_size_en")
+        current = config.load().get(lang.config_key)
 
-        for ms, label in EN_MODELS:
+        for ms, label in lang.models:
             a = QAction(label, menu)
             a.setCheckable(True)
             a.setChecked(current == ms)
-            a.triggered.connect(lambda checked, m=ms: self._switch_en(m))
-            group.addAction(a)
-            menu.addAction(a)
-        return menu
-
-    def _build_nl_menu(self, parent: QMenu) -> QMenu:
-        menu = QMenu("Dutch Model", parent)
-        menu.setStyleSheet(_MENU_STYLE)
-        group = QActionGroup(menu)
-        group.setExclusive(True)
-        current = config.load().get("model_size_nl")
-
-        for ms, label in NL_MODELS:
-            a = QAction(label, menu)
-            a.setCheckable(True)
-            a.setChecked(current == ms)
-            a.triggered.connect(lambda checked, m=ms: self._switch_nl(m))
+            a.triggered.connect(lambda checked, m=ms, lc=lang.code: self._switch_model(lc, m))
             group.addAction(a)
             menu.addAction(a)
         return menu
@@ -243,8 +203,8 @@ class TrayApp:
 
         menu.addMenu(self._build_mic_menu(menu))
         menu.addSeparator()
-        menu.addMenu(self._build_en_menu(menu))
-        menu.addMenu(self._build_nl_menu(menu))
+        for code in LANGUAGE_CYCLE:
+            menu.addMenu(self._build_lang_menu(LANGUAGES[code], menu))
         menu.addSeparator()
 
         history_action = menu.addAction("History...")
@@ -271,8 +231,6 @@ class TrayApp:
 
     def setup(self) -> None:
         """Create and show the tray icon. Must be called on the main (Qt) thread."""
-        from main import __version__
-
         icon = _pil_to_qicon(_generate_icon())
         self._tray = QSystemTrayIcon(icon)
         self._tray.setToolTip(f"ScribeVibe v{__version__}")

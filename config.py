@@ -3,13 +3,13 @@ import os
 from pathlib import Path
 
 import paths
+from languages import LANGUAGES
 
 SETTINGS_FILE = paths.SETTINGS_FILE
 
 DEFAULTS = {
     "device_id": None,
-    "model_size_en": "small.en",
-    "model_size_nl": "small",
+    **{lang.config_key: lang.default_model for lang in LANGUAGES.values()},
     "beam_size": 2,
     "sound_start": "assets/start.wav",
     "sound_stop": "assets/stop.wav",
@@ -46,14 +46,10 @@ class Config:
         settings["device_id"] = device_id
         self.save(settings)
 
-    def set_model_size_en(self, size_name: str) -> None:
+    def set_model_size(self, lang_code: str, size_name: str) -> None:
+        config_key = LANGUAGES[lang_code].config_key
         settings = self.load()
-        settings["model_size_en"] = size_name
-        self.save(settings)
-
-    def set_model_size_nl(self, size_name: str) -> None:
-        settings = self.load()
-        settings["model_size_nl"] = size_name
+        settings[config_key] = size_name
         self.save(settings)
 
 
@@ -73,9 +69,5 @@ def set_device(device_id) -> None:
     _instance.set_device(device_id)
 
 
-def set_model_size_en(size_name) -> None:
-    _instance.set_model_size_en(size_name)
-
-
-def set_model_size_nl(size_name) -> None:
-    _instance.set_model_size_nl(size_name)
+def set_model_size(lang_code: str, size_name: str) -> None:
+    _instance.set_model_size(lang_code, size_name)

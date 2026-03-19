@@ -105,12 +105,12 @@ class TestSetHelpers:
         assert config.load()["device_id"] is None
 
     def test_set_model_size_en(self, tmp_path):
-        config.set_model_size_en("medium.en")
+        config.set_model_size("en", "medium.en")
         on_disk = json.loads((tmp_path / "settings.json").read_text())
         assert on_disk["model_size_en"] == "medium.en"
 
     def test_set_model_size_nl(self, tmp_path):
-        config.set_model_size_nl("large")
+        config.set_model_size("nl", "large")
         on_disk = json.loads((tmp_path / "settings.json").read_text())
         assert on_disk["model_size_nl"] == "large"
 

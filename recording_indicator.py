@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, Qt, Signal, Slot
 from PySide6.QtGui import QBrush, QColor, QFont, QLinearGradient
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
-pg.setConfigOptions(antialias=True)
+from languages import LANGUAGES
 
 # ── constants ────────────────────────────────────────────────────────
 _BUFFER_LEN = 4000  # samples in the rolling buffer (~0.25s at 16 kHz)
@@ -34,6 +34,7 @@ class WaveformWidget(QWidget):
     """Frameless, transparent, always-on-top waveform overlay."""
 
     def __init__(self) -> None:
+        pg.setConfigOptions(antialias=True)
         super().__init__()
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -159,7 +160,7 @@ class WaveformWidget(QWidget):
 
     @Slot(str)
     def _do_set_language(self, lang: str) -> None:
-        self._lang_label.setText("EN" if lang == "en" else "NL")
+        self._lang_label.setText(LANGUAGES[lang].name)
 
     # ── internal ─────────────────────────────────────────────────────
 

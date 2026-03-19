@@ -1,6 +1,6 @@
 """ScribeVibe — GPU-accelerated push-to-talk transcription."""
 
-__version__ = "1.0.0"
+from _version import __version__
 
 import ctypes
 import logging
@@ -19,8 +19,10 @@ except Exception:
 import config
 import paths
 from interface import HotkeyListener
+from languages import LANGUAGE_CYCLE, LANGUAGES
 from language_overlay import LanguageOverlay
 from recording_indicator import RecordingIndicator
+from transcribing_indicator import TranscribingIndicator
 from transcriber import WhisperEngine
 from tray_app import TrayApp
 
@@ -62,6 +64,7 @@ def _warmup(engine: WhisperEngine, tray: TrayApp, model_size: str) -> None:
 
 
 def main() -> None:
+    paths.ensure_app_dir()
     _setup_logging()
     logging.info(f"ScribeVibe v{__version__} starting...")
 
@@ -83,16 +86,26 @@ def main() -> None:
     indicator = RecordingIndicator()
     indicator.create_widget()  # must be called after QApplication exists
 
+    transcribing_indicator = TranscribingIndicator()
+    transcribing_indicator.create_widget()  # must be called after QApplication exists
+
     lang_overlay = LanguageOverlay()
     lang_overlay.start()
 
-    listener = HotkeyListener(engine=engine, indicator=indicator, language_overlay=lang_overlay, notify_fn=tray.notify)
+    listener = HotkeyListener(
+        engine=engine,
+        indicator=indicator,
+        language_overlay=lang_overlay,
+        notify_fn=tray.notify,
+        transcribing_indicator=transcribing_indicator,
+    )
     listener.start()
 
-    # Eager model load + CUDA warm-up in background
+    # Eager model load + CUDA warm-up in background (default language = first in cycle)
+    default_lang = LANGUAGES[LANGUAGE_CYCLE[0]]
     threading.Thread(
         target=_warmup,
-        args=(engine, tray, cfg["model_size_en"]),
+        args=(engine, tray, cfg.get(default_lang.config_key, default_lang.default_model)),
         daemon=True,
     ).start()
 

@@ -21,9 +21,10 @@ def _play(path: str) -> None:
 class TranscriptionWorker:
     """Processes transcription tasks from a queue on a background daemon thread."""
 
-    def __init__(self, engine, notify_fn: Callable | None = None) -> None:
+    def __init__(self, engine, notify_fn: Callable | None = None, transcribing_indicator=None) -> None:
         self._engine = engine
         self._notify_fn = notify_fn
+        self._transcribing_indicator = transcribing_indicator
         cfg = config.load()
         self._snd_done = get_resource_path(cfg["sound_done"])
         self._queue: queue.Queue = queue.Queue()
@@ -47,6 +48,15 @@ class TranscriptionWorker:
                 self._queue.task_done()
 
     def _process(self, task: dict) -> None:
+        if self._transcribing_indicator:
+            self._transcribing_indicator.show()
+        try:
+            self._process_task(task)
+        finally:
+            if self._transcribing_indicator:
+                self._transcribing_indicator.hide()
+
+    def _process_task(self, task: dict) -> None:
         language = task["lang"]
         model_size = task["model_size"]
 

@@ -20,11 +20,7 @@ from transcriber import WhisperEngine
 from interface import HotkeyListener
 from language_overlay import LanguageOverlay
 from recording_indicator import RecordingIndicator
-from transcribing_indicator import TranscribingIndicator
 from tray_app import TrayApp
-import history_ui
-import output_handler
-
 
 def _setup_logging() -> None:
     """Configure logging to both console and a rotating log file."""
@@ -60,7 +56,7 @@ def _setup_logging() -> None:
 def _warmup(engine: WhisperEngine, tray: TrayApp, model_size: str) -> None:
     """Background: load the default model and run a CUDA warm-up pass."""
     engine.ensure_model(model_size)
-    engine.warmup()
+    engine.warmup()No, no. 
     tray.notify("Model loaded & CUDA warm-up done — ready to transcribe!")
 
 
@@ -70,15 +66,15 @@ if __name__ == "__main__":
 
     # PySide6 QApplication must live on the main thread
     from PySide6.QtWidgets import QApplication
+    import history_ui
     app = QApplication(sys.argv)
-
-    history_ui.init()  # must be called after QApplication exists
+    history_ui.init()  # must be on main thread, after QApplication
 
     cfg = config.load()
     engine = WhisperEngine()
 
     tray = TrayApp(engine=engine)
-    tray.setup()  # Qt tray icon — runs on main thread
+    tray.setup()  # must be called on the main Qt thread
 
     # Wire up download notifications
     engine._notify_fn = tray.notify
@@ -86,16 +82,11 @@ if __name__ == "__main__":
     indicator = RecordingIndicator()
     indicator.create_widget()  # must be called after QApplication exists
 
-    transcribing = TranscribingIndicator()
-    transcribing.create_widget()
-
     lang_overlay = LanguageOverlay()
     lang_overlay.start()
 
     listener = HotkeyListener(engine=engine, indicator=indicator,
-                              language_overlay=lang_overlay,
-                              transcribing_indicator=transcribing,
-                              notify_fn=tray.notify)
+                              language_overlay=lang_overlay)
     listener.start()
 
     # Eager model load + CUDA warm-up in background
@@ -105,17 +96,7 @@ if __name__ == "__main__":
         daemon=True,
     ).start()
 
-    def _shutdown():
-        logging.info("Shutting down...")
-        listener._recorder._close_stream()
-        lang_overlay.stop()
-        tray.stop()
-        output_handler.set_log_hook(None)
-        logging.shutdown()
-
-    app.aboutToQuit.connect(_shutdown)
-
-    print(f"\nScribeVibe ready. Insert=Record  Shift+Insert=Switch language  Escape=Abort  Ctrl+C to quit.\n")
+    print(f"\nScribeVibe ready. F13=English  F14=Dutch  Insert=Record  Pause=Switch language  Ctrl+C to quit.\n")
 
     # Run the Qt event loop on the main thread (required by PySide6)
     sys.exit(app.exec())

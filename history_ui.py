@@ -55,8 +55,7 @@ class _HistoryBridge(QObject):
 
     @Slot(result=str)
     def clear_history(self):
-        with output_handler._file_lock:
-            open(output_handler.LOG_FILE, "w").close()
+        output_handler.clear_log()
         return json.dumps({"ok": True})
 
     def push_entry(self, ts: str, meta: str, text: str):

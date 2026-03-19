@@ -25,3 +25,5 @@
 [2026-03-18 22:38:38] [Systran/faster-distil-whisper-large-v3 | 1.22s] Just get us and tell.
 [2026-03-18 22:39:11] [Systran/faster-distil-whisper-large-v3 | 0.72s] It's the next level test. We can see.
 [2026-03-18 22:39:20] [Systran/faster-distil-whisper-large-v3 | 0.91s] This is a test.
+[2026-03-19 08:20:50] [Systran/faster-distil-whisper-large-v3 | 1.39s] No, no.
+[2026-03-19 08:21:24] [deepdml/faster-whisper-large-v3-turbo-ct2 | 1.34s] Ehm.

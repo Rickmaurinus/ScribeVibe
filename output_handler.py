@@ -102,6 +102,12 @@ def log_transcription(text: str, model_name: str = "", transcription_time: float
         _log_hook(timestamp, meta, text)
 
 
+def clear_log() -> None:
+    """Truncate the log file, removing all entries."""
+    with _file_lock:
+        open(LOG_FILE, "w").close()
+
+
 def delete_log_entry(ts: str, meta: str, text: str) -> None:
     """Remove a single entry from the log file."""
     if meta:

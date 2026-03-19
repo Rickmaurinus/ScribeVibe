@@ -34,19 +34,7 @@ def get_resource_path(relative_path: str) -> str:
     return os.path.join(os.path.abspath("."), relative_path)
 
 
-# ── audio feedback — cached file paths, native async playback ────────
-
-_cfg = config.load()
-_SND_START: str = get_resource_path(_cfg["sound_start"])
-_SND_STOP:  str = get_resource_path(_cfg["sound_stop"])
-_SND_DONE:  str = get_resource_path(_cfg["sound_done"])
-del _cfg
-
-# Pre-warm the OS file cache by reading each file once at startup
-for _p in (_SND_START, _SND_STOP, _SND_DONE):
-    with open(_p, "rb") as _f:
-        _f.read()
-
+# ── audio feedback — native async playback ───────────────────────────
 
 def _play(path: str) -> None:
     """Play a WAV file asynchronously — returns instantly, no threads needed."""
@@ -79,6 +67,17 @@ class HotkeyListener:
         self._queue: queue.Queue = queue.Queue()
         self._worker = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
+
+        _cfg = config.load()
+        self._snd_start = get_resource_path(_cfg["sound_start"])
+        self._snd_stop  = get_resource_path(_cfg["sound_stop"])
+        self._snd_done  = get_resource_path(_cfg["sound_done"])
+        for _p in (self._snd_start, self._snd_stop, self._snd_done):
+            try:
+                with open(_p, "rb") as _f:
+                    _f.read()
+            except OSError:
+                pass
 
         # Pre-open mic stream so first Insert press is instant
         cfg = config.load()
@@ -232,7 +231,7 @@ class HotkeyListener:
         )
 
         # Fire chime from RAM (SND_ASYNC returns instantly), then open mic
-        _play(_SND_START)
+        _play(self._snd_start)
 
         try:
             self._recorder.start_recording(device_id)
@@ -274,7 +273,7 @@ class HotkeyListener:
         self._recorder._live_callback = None
         if self._indicator:
             self._indicator.hide()
-        _play(_SND_STOP)
+        _play(self._snd_stop)
 
         # Grab raw buffer — fast, no concat/resample on this thread
         raw = self._recorder.stop_recording_raw()
@@ -292,7 +291,7 @@ class HotkeyListener:
         if self._indicator:
             self._indicator.hide()
         self._recorder.stop_recording_raw()  # discard captured audio
-        _play(_SND_STOP)
+        _play(self._snd_stop)
         print("Recording aborted.")
 
     # ── background worker ─────────────────────────────────────────────
@@ -322,7 +321,7 @@ class HotkeyListener:
 
         audio_duration = len(audio_data) / SAMPLE_RATE
         if audio_duration < 0.1:
-            _play(_SND_DONE)
+            _play(self._snd_done)
             return
 
         print(f"Processing {audio_duration:.1f}s of audio...")
@@ -339,7 +338,7 @@ class HotkeyListener:
             print(f"ERROR: {msg}")
             if self._notify_fn:
                 self._notify_fn(msg, title="ScribeVibe — Error")
-            _play(_SND_DONE)
+            _play(self._snd_done)
             return
 
         if self._transcribing_indicator:
@@ -355,7 +354,7 @@ class HotkeyListener:
             print("WARNING: Transcription returned empty — speech not detected.")
             if self._notify_fn:
                 self._notify_fn("Nothing transcribed — no speech detected.")
-        _play(_SND_DONE)
+        _play(self._snd_done)
 
     def start(self) -> None:
         self._install_key_hooks()

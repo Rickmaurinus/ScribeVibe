@@ -3,21 +3,17 @@
 import logging
 import threading
 import time
-import winsound
 from collections.abc import Callable
 
 import sounddevice as sd
 
+import audio_utils
 import config
 from audio_capture import AudioRecorder
 from languages import LANGUAGE_CYCLE, LANGUAGES
 from paths import get_resource_path
 
 logger = logging.getLogger(__name__)
-
-
-def _play(path: str) -> None:
-    winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
 
 class RecordingSession:
@@ -106,7 +102,7 @@ class RecordingSession:
         if self._indicator:
             self._indicator.hide()
         self._recorder.stop_recording_raw()  # discard
-        _play(self._snd_stop)
+        audio_utils.play(self._snd_stop)
         logger.info("Recording aborted.")
         return True
 
@@ -116,7 +112,7 @@ class RecordingSession:
         lang = LANGUAGES[self._active_language]
         self._active_model_size = cfg.get(lang.config_key, lang.default_model)
 
-        _play(self._snd_start)
+        audio_utils.play(self._snd_start)
 
         try:
             self._recorder.start_recording(device_id)
@@ -152,7 +148,7 @@ class RecordingSession:
         self._recorder.set_live_callback(None)
         if self._indicator:
             self._indicator.hide()
-        _play(self._snd_stop)
+        audio_utils.play(self._snd_stop)
         raw = self._recorder.stop_recording_raw()
         if self._on_task_ready:
             self._on_task_ready(

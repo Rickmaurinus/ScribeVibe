@@ -64,7 +64,6 @@ def _warmup(engine: WhisperEngine, tray: TrayApp, model_size: str) -> None:
 
 
 def main() -> None:
-    paths.ensure_app_dir()
     _setup_logging()
     logging.info(f"ScribeVibe v{__version__} starting...")
 

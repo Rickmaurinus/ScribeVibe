@@ -3,19 +3,15 @@
 import logging
 import queue
 import threading
-import winsound
 from collections.abc import Callable
 
+import audio_utils
 import config
 import output_handler
 from audio_capture import SAMPLE_RATE, AudioRecorder
 from paths import get_resource_path
 
 logger = logging.getLogger(__name__)
-
-
-def _play(path: str) -> None:
-    winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
 
 class TranscriptionWorker:
@@ -64,7 +60,7 @@ class TranscriptionWorker:
         audio_duration = len(audio_data) / SAMPLE_RATE
 
         if audio_duration < 0.1:
-            _play(self._snd_done)
+            audio_utils.play(self._snd_done)
             return
 
         logger.info("Processing %.1fs of audio...", audio_duration)
@@ -77,7 +73,7 @@ class TranscriptionWorker:
             logger.error(msg)
             if self._notify_fn:
                 self._notify_fn(msg, title="ScribeVibe — Error")
-            _play(self._snd_done)
+            audio_utils.play(self._snd_done)
             return
 
         if text:
@@ -89,4 +85,4 @@ class TranscriptionWorker:
             logger.warning("Transcription returned empty — speech not detected.")
             if self._notify_fn:
                 self._notify_fn("Nothing transcribed — no speech detected.")
-        _play(self._snd_done)
+        audio_utils.play(self._snd_done)

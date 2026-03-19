@@ -84,7 +84,8 @@ class WhisperEngine:
         with self._lock:
             if self._model is None:
                 return
-            assert self.current_model is not None
+            if self.current_model is None:
+                raise RuntimeError("warmup() called but current_model is None")
             dummy_audio = np.zeros(8000, dtype=np.float32)  # 0.5s of silence at 16kHz
             logger.info("CUDA warm-up: running dummy inference...")
             start = time.perf_counter()
@@ -111,7 +112,8 @@ class WhisperEngine:
         ensure_model() call to finish before running inference.
         """
         with self._lock:
-            assert self.current_model is not None and self._model is not None
+            if self.current_model is None or self._model is None:
+                raise RuntimeError("transcribe() called before model was loaded via ensure_model()")
             multilingual = not self.current_model.endswith(".en")
             kwargs = {"language": language} if multilingual else {}
             start_time = time.perf_counter()
